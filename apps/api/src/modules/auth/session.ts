@@ -17,10 +17,7 @@ export function bearerToken(request: FastifyRequest): string | null {
   return scheme?.toLowerCase() === 'bearer' && token ? token.trim() : null;
 }
 
-export async function authenticateRequest(request: FastifyRequest): Promise<AuthenticatedUser | null> {
-  const token = bearerToken(request);
-  if (!token) return null;
-
+export async function authenticateToken(token: string): Promise<AuthenticatedUser | null> {
   const tokenHash = hashSessionToken(token);
   const result = await query<AuthenticatedUser>(
     `SELECT u.id, u.username, u.display_name, u.gender, u.status
@@ -34,10 +31,21 @@ export async function authenticateRequest(request: FastifyRequest): Promise<Auth
     [tokenHash]
   );
 
-  const user = result.rows[0] ?? null;
+  return result.rows[0] ?? null;
+}
+
+export async function touchSessionToken(token: string): Promise<void> {
+  await query('UPDATE auth_sessions SET last_seen_at = now() WHERE token_hash = $1', [hashSessionToken(token)]);
+}
+
+export async function authenticateRequest(request: FastifyRequest): Promise<AuthenticatedUser | null> {
+  const token = bearerToken(request);
+  if (!token) return null;
+
+  const user = await authenticateToken(token);
   if (user) {
-    void query('UPDATE auth_sessions SET last_seen_at = now() WHERE token_hash = $1', [tokenHash]).catch(
-      (error) => request.log.warn({ err: error }, 'failed to update session last_seen_at')
+    void touchSessionToken(token).catch((error) =>
+      request.log.warn({ err: error }, 'failed to update session last_seen_at')
     );
   }
 
