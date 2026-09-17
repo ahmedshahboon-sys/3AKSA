@@ -17,7 +17,27 @@
     "light_text_primary": "#171A1F",
     "light_text_secondary": "#6F7782"
   },
-  "bottom_navigation": ["الرئيسية", "الغرف", "القريبون", "الخاص", "حسابي"],
-  "chat_v1_allowed": ["Text", "Voice Notes", "Stickers", "Free Reactions", "Premium Reactions", "Paid Gifts"],
-  "chat_v1_forbidden": ["Images", "Video messages", "Voice calls", "Video calls", "Voice rooms", "Arbitrary file sharing"]
+  "bottom_navigation": [
+    "الرئيسية",
+    "الغرف",
+    "القريبون",
+    "الخاص",
+    "حسابي"
+  ],
+  "chat_v1_allowed": [
+    "Text",
+    "Voice Notes",
+    "Stickers",
+    "Free Reactions",
+    "Premium Reactions",
+    "Paid Gifts"
+  ],
+  "chat_v1_forbidden": [
+    "Images",
+    "Video messages",
+    "Voice calls",
+    "Video calls",
+    "Voice rooms",
+    "Arbitrary file sharing"
+  ]
 }
