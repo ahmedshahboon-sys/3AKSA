@@ -14,7 +14,17 @@ type IconName =
   | 'heart'
   | 'search'
   | 'plus'
-  | 'chevron';
+  | 'chevron'
+  | 'back'
+  | 'share'
+  | 'more'
+  | 'volume'
+  | 'fullscreen'
+  | 'smile'
+  | 'mic'
+  | 'send'
+  | 'history'
+  | 'store';
 
 const paths: Record<IconName, string> = {
   home: 'M3 10.7 12 3l9 7.7v9.1a1.2 1.2 0 0 1-1.2 1.2h-5.1v-6.2H9.3V21H4.2A1.2 1.2 0 0 1 3 19.8z',
@@ -31,22 +41,21 @@ const paths: Record<IconName, string> = {
   search: 'm20 20-4.4-4.4m2-5.1a7.1 7.1 0 1 1-14.2 0 7.1 7.1 0 0 1 14.2 0Z',
   plus: 'M12 5v14M5 12h14',
   chevron: 'm9 18 6-6-6-6',
+  back: 'm15 18-6-6 6-6',
+  share: 'M12 3v12m0-12 4 4m-4-4L8 7M5 11v8h14v-8',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  volume: 'M4 10v4h4l5 4V6L8 10H4Zm12-1c1.3 1.6 1.3 4.4 0 6m2.5-9c3 3.3 3 8.7 0 12',
+  fullscreen: 'M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5',
+  smile: 'M8 10h.01M16 10h.01M8 15c1 1.3 2.3 2 4 2s3-.7 4-2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z',
+  mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0m-7 7v3m-4 0h8',
+  send: 'm3 4 18 8-18 8 4-8-4-8Zm4 8h14',
+  history: 'M4 12a8 8 0 1 0 2.3-5.7L4 8m0-4v4h4m4-1v5l3 2',
+  store: 'M5 8h14l-1 13H6L5 8Zm2 0V6a5 5 0 0 1 10 0v2',
 };
 
 export function Icon({ name, size = 22, ...props }: SVGProps<SVGSVGElement> & { name: IconName; size?: number }) {
   return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height={size}
-      viewBox="0 0 24 24"
-      width={size}
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.8"
-      {...props}
-    >
+    <svg aria-hidden="true" fill="none" height={size} viewBox="0 0 24 24" width={size} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" {...props}>
       <path d={paths[name]} />
     </svg>
   );
