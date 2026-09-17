@@ -3,6 +3,7 @@ import { apiBasePath, env } from './config.js';
 import { db } from './db.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
 import { registerHealthRoutes } from './modules/health/routes.js';
+import { registerSocialRoutes } from './modules/social/routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -23,6 +24,10 @@ export async function buildApp() {
   });
 
   await registerAuthRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerSocialRoutes(app, {
     basePath: apiBasePath
   });
 
