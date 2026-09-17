@@ -9,6 +9,8 @@ import { registerPrivateRoutes } from './modules/private/routes.js';
 import { attachRealtime } from './modules/realtime/socket.js';
 import { registerRoomRoutes } from './modules/rooms/routes.js';
 import { registerSocialRoutes } from './modules/social/routes.js';
+import { registerSuggestionRoutes } from './modules/social/suggestions.js';
+import { registerRequestRateLimits } from './request-rate-limits.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -23,6 +25,8 @@ export async function buildApp() {
     await db.end();
   });
 
+  registerRequestRateLimits(app);
+
   await registerHealthRoutes(app, {
     basePath: apiBasePath,
     version: env.APP_VERSION
@@ -33,6 +37,10 @@ export async function buildApp() {
   });
 
   await registerSocialRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerSuggestionRoutes(app, {
     basePath: apiBasePath
   });
 
