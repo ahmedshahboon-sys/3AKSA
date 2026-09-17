@@ -31,14 +31,13 @@ export function orderedUserIds(a: string, b: string): [string, string] {
 }
 
 export async function areBlocked(a: string, b: string, client?: PoolClient) {
-  const runner = client ?? { query };
-  const result = await runner.query(
-    `SELECT 1 FROM user_blocks
-     WHERE (blocker_id = $1 AND blocked_id = $2)
-        OR (blocker_id = $2 AND blocked_id = $1)
-     LIMIT 1`,
-    [a, b]
-  );
+  const sql = `SELECT 1 FROM user_blocks
+               WHERE (blocker_id = $1 AND blocked_id = $2)
+                  OR (blocker_id = $2 AND blocked_id = $1)
+               LIMIT 1`;
+  const result = client
+    ? await client.query(sql, [a, b])
+    : await query(sql, [a, b]);
   return (result.rowCount ?? 0) > 0;
 }
 
