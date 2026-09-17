@@ -1,0 +1,13 @@
+{
+  "name": "3AKSA | عكسة",
+  "short_name": "3AKSA",
+  "description": "منصة دردشة اجتماعية خفيفة للتسلية والتواصل",
+  "lang": "ar",
+  "dir": "rtl",
+  "display": "standalone",
+  "start_url": ".",
+  "scope": ".",
+  "background_color": "#111315",
+  "theme_color": "#111315",
+  "categories": ["social"]
+}
