@@ -114,6 +114,7 @@ export async function registerPrivateRoutes(app: FastifyInstance, options: { bas
        WHERE c.status = 'pending'
          AND (c.user_low_id = $1 OR c.user_high_id = $1)
          AND c.requested_by <> $1
+         AND preview.created_at IS NOT NULL
          AND NOT EXISTS (
            SELECT 1 FROM user_blocks b
            WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)
@@ -139,10 +140,16 @@ export async function registerPrivateRoutes(app: FastifyInstance, options: { bas
     try {
       await withTransaction(async (client) => {
         const found = await client.query<PrivateConversationRow>(
-          `SELECT * FROM private_conversations
-           WHERE id = $1 AND status = 'pending'
-             AND (user_low_id = $2 OR user_high_id = $2)
-             AND requested_by <> $2
+          `SELECT * FROM private_conversations c
+           WHERE c.id = $1 AND c.status = 'pending'
+             AND (c.user_low_id = $2 OR c.user_high_id = $2)
+             AND c.requested_by <> $2
+             AND EXISTS (
+               SELECT 1 FROM private_messages m
+               WHERE m.conversation_id = c.id
+                 AND m.deleted_at IS NULL
+                 AND m.expires_at > now()
+             )
            FOR UPDATE`,
           [request.params.conversationId, user.id]
         );
@@ -170,11 +177,17 @@ export async function registerPrivateRoutes(app: FastifyInstance, options: { bas
     const user = await requireUser(request, reply);
     if (!user) return;
     const result = await query(
-      `UPDATE private_conversations
+      `UPDATE private_conversations c
        SET status = 'rejected', updated_at = now()
-       WHERE id = $1 AND status = 'pending'
-         AND (user_low_id = $2 OR user_high_id = $2)
-         AND requested_by <> $2`,
+       WHERE c.id = $1 AND c.status = 'pending'
+         AND (c.user_low_id = $2 OR c.user_high_id = $2)
+         AND c.requested_by <> $2
+         AND EXISTS (
+           SELECT 1 FROM private_messages m
+           WHERE m.conversation_id = c.id
+             AND m.deleted_at IS NULL
+             AND m.expires_at > now()
+         )`,
       [request.params.conversationId, user.id]
     );
     if ((result.rowCount ?? 0) === 0) return reply.code(404).send({ error: 'MESSAGE_REQUEST_NOT_FOUND' });
