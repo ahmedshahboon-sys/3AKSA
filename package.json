@@ -11,8 +11,9 @@
     "dev": "pnpm -r --parallel --filter './apps/*' dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
-    "test": "pnpm -r test",
+    "lint": "node scripts/phase1-quality.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "pnpm lint && pnpm typecheck && pnpm build && pnpm test",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {
