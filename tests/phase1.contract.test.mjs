@@ -19,8 +19,8 @@ test('official five-tab navigation stays fixed', () => {
   }
 });
 
-test('visual source of truth is the project authority', () => {
-  assert.match(master, /SOURCE OF TRUTH/i);
+test('visual source is the project authority', () => {
+  assert.match(master, /المصدر البصري الرسمي المعتمد/);
   assert.match(master, /Readex Pro/);
   assert.match(master, /Bottom Navigation/);
 });
