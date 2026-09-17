@@ -9,6 +9,7 @@ import { normalizeBasePath } from '@3aksa/config';
 import { App } from './App';
 import { applyTheme, getInitialTheme } from './theme';
 import './styles.css';
+import './phase1.css';
 
 const basePath = normalizeBasePath(import.meta.env.VITE_PUBLIC_BASE_PATH || '/3aksa/');
 const routerBasename = basePath === '/' ? '/' : basePath.slice(0, -1);
