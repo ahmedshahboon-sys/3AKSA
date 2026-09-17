@@ -16,8 +16,12 @@ const manifest = read('apps/web/public/manifest.webmanifest');
 const visualMaster = read('docs/design/3AKSA_VISUAL_UI_MASTER.md');
 const tokens = read('docs/design/design-tokens.json');
 
-for (const label of ['الرئيسية', 'الغرف', 'القريبون', 'الخاص', 'حسابي']) {
-  mustContain(app, label, 'bottom navigation label');
+const navLabels = ['الرئيسية', 'الغرف', 'القريبون', 'الخاص', 'حسابي'];
+let previousNavIndex = -1;
+for (const label of navLabels) {
+  const currentIndex = app.indexOf(`label: '${label}'`);
+  if (currentIndex <= previousNavIndex) throw new Error(`Bottom navigation label missing or out of order: ${label}`);
+  previousNavIndex = currentIndex;
 }
 
 for (const route of ['/rooms/:roomId', '/private/:userId', '/wallet', '/store', '/tv', '/notifications']) {
@@ -36,10 +40,12 @@ mustContain(screens, 'تسجيل صوتي', 'voice note composer control');
 mustContain(screens, 'بدون صور أو مكالمات', 'V1 guard copy');
 mustContain(main, "@fontsource/readex-pro/400.css", 'Readex Pro');
 mustContain(main, "VITE_PUBLIC_BASE_PATH || '/3aksa/'", 'base path');
-mustContain(theme, "pink-light", 'pink theme');
-mustContain(theme, "pink-dark", 'pink dark theme');
+mustContain(theme, 'pink-light', 'pink theme');
+mustContain(theme, 'pink-dark', 'pink dark theme');
 mustContain(manifest, '"display": "standalone"', 'PWA standalone mode');
-mustContain(visualMaster, 'SOURCE OF TRUTH', 'official visual source');
+mustContain(visualMaster, 'المصدر البصري الرسمي المعتمد', 'official visual authority');
+mustContain(visualMaster, 'Readex Pro', 'official font rule');
+mustContain(visualMaster, 'Bottom Navigation', 'official navigation rule');
 mustContain(tokens, '"font_family": "Readex Pro"', 'official design tokens');
 
 for (const path of ['apps/web/public/sw.js', 'docs/design/3AKSA_UI_VISUAL_REFERENCE.html', 'docs/design/README_FIRST.txt']) {
