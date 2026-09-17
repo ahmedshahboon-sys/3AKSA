@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE room_messages (
   id uuid PRIMARY KEY,
   room_id uuid NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
@@ -22,5 +20,3 @@ CREATE INDEX room_messages_live_history_idx
 CREATE INDEX room_messages_expiry_idx
   ON room_messages (expires_at)
   WHERE deleted_at IS NULL;
-
-COMMIT;
