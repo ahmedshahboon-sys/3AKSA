@@ -11,12 +11,12 @@ export type Room = {
   favorite: boolean;
 };
 
-export const rooms: Room[] = [
+export const rooms = [
   { id: 'tripoli-night', name: 'سهرة طرابلس', description: 'لمة خفيفة وسوالف على الجو الليبي', count: 34, tv: true, kind: 'للجميع', owner: 'محمد', favorite: true },
   { id: 'general-chat', name: 'سوالف عامة', description: 'دردشة مفتوحة من غير تعقيد', count: 21, tv: false, kind: 'للجميع', owner: 'خالد', favorite: false },
   { id: 'girls-lounge', name: 'لمة البنات', description: 'غرفة بنات فقط', count: 17, tv: false, kind: 'بنات', owner: 'سارة', favorite: false },
   { id: 'boys-corner', name: 'قعدة الشباب', description: 'سوالف يومية وخفيفة', count: 13, tv: false, kind: 'أولاد', owner: 'علي', favorite: true },
-];
+] satisfies [Room, ...Room[]];
 
 export const nearbyPeople = [
   { name: 'محمد', distance: '650 متر', mutual: '3 أصدقاء مشتركين', gender: 'male' as Gender },
