@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE users (
   id uuid PRIMARY KEY,
   username varchar(24) NOT NULL,
@@ -56,5 +54,3 @@ CREATE TABLE user_devices (
   blocked_at timestamptz,
   UNIQUE (user_id, installation_id)
 );
-
-COMMIT;
