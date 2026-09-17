@@ -73,8 +73,7 @@ export function attachRealtime(app: FastifyInstance) {
   const io = new SocketIOServer(app.server, {
     path: env.SOCKET_PATH,
     serveClient: false,
-    transports: ['websocket', 'polling'],
-    cors: false
+    transports: ['websocket', 'polling']
   });
 
   io.use(async (socket, next) => {
