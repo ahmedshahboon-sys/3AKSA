@@ -6,6 +6,7 @@
   "scripts": {
     "predev": "bash ../../scripts/prepare-visual-assets.sh",
     "dev": "vite",
+    "prebuild": "bash ../../scripts/prepare-visual-assets.sh",
     "build": "vite build",
     "prepreview": "bash ../../scripts/prepare-visual-assets.sh",
     "preview": "vite preview",
