@@ -27,36 +27,47 @@ function log(level: 'info' | 'warn' | 'error', message: string, extra: Record<st
   }));
 }
 
-async function purgeExpiredRoomMessages() {
+async function purgeTable(table: 'room_messages' | 'private_messages') {
+  let deletedTotal = 0;
+  while (!stopping) {
+    const result = await db.query<{ id: string }>(
+      `WITH doomed AS (
+         SELECT id
+         FROM ${table}
+         WHERE expires_at <= now() OR deleted_at IS NOT NULL
+         ORDER BY expires_at
+         LIMIT $1
+       )
+       DELETE FROM ${table} m
+       USING doomed d
+       WHERE m.id = d.id
+       RETURNING m.id`,
+      [CLEANUP_BATCH_SIZE]
+    );
+
+    const deleted = result.rowCount ?? 0;
+    deletedTotal += deleted;
+    if (deleted < CLEANUP_BATCH_SIZE) break;
+  }
+  return deletedTotal;
+}
+
+async function purgeExpiredMessages() {
   if (cleanupRunning || stopping) return;
   cleanupRunning = true;
-  let deletedTotal = 0;
 
   try {
-    while (!stopping) {
-      const result = await db.query<{ id: string }>(
-        `WITH doomed AS (
-           SELECT id
-           FROM room_messages
-           WHERE expires_at <= now() OR deleted_at IS NOT NULL
-           ORDER BY expires_at
-           LIMIT $1
-         )
-         DELETE FROM room_messages m
-         USING doomed d
-         WHERE m.id = d.id
-         RETURNING m.id`,
-        [CLEANUP_BATCH_SIZE]
-      );
-
-      const deleted = result.rowCount ?? 0;
-      deletedTotal += deleted;
-      if (deleted < CLEANUP_BATCH_SIZE) break;
+    const roomDeleted = await purgeTable('room_messages');
+    const privateDeleted = await purgeTable('private_messages');
+    if (roomDeleted > 0 || privateDeleted > 0) {
+      log('info', 'expired messages purged', {
+        roomDeleted,
+        privateDeleted,
+        deleted: roomDeleted + privateDeleted
+      });
     }
-
-    if (deletedTotal > 0) log('info', 'expired room messages purged', { deleted: deletedTotal });
   } catch (error) {
-    log('error', 'room message cleanup failed', {
+    log('error', 'message cleanup failed', {
       error: error instanceof Error ? error.message : String(error)
     });
   } finally {
@@ -85,8 +96,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 log('info', 'worker started', { cleanupIntervalMs: CLEANUP_INTERVAL_MS });
-await purgeExpiredRoomMessages();
+await purgeExpiredMessages();
 cleanupTimer = setInterval(() => {
-  void purgeExpiredRoomMessages();
+  void purgeExpiredMessages();
 }, CLEANUP_INTERVAL_MS);
 cleanupTimer.unref();
