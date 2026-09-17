@@ -4,12 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "bash ../../scripts/prepare-visual-assets.sh",
     "dev": "vite",
+    "prebuild": "bash ../../scripts/prepare-visual-assets.sh",
     "build": "vite build",
+    "prepreview": "bash ../../scripts/prepare-visual-assets.sh",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "echo 'lint pending workspace tooling'",
-    "test": "echo 'tests pending'",
+    "lint": "echo 'covered by root Phase 1 quality gate'",
+    "test": "echo 'covered by root Phase 1 contract tests'",
     "clean": "rm -rf dist"
   },
   "dependencies": {
