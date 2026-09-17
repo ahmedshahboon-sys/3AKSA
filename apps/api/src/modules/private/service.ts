@@ -106,7 +106,10 @@ export async function startPrivateText(senderId: string, targetId: string, text:
       const created = await client.query<PrivateConversationRow>(
         `INSERT INTO private_conversations (
            id, user_low_id, user_high_id, requested_by, status, accepted_at
-         ) VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 = 'active' THEN now() ELSE NULL END)
+         ) VALUES (
+           $1, $2, $3, $4, $5::varchar(16),
+           CASE WHEN $5::varchar(16) = 'active' THEN now() ELSE NULL END
+         )
          RETURNING *`,
         [randomUUID(), low, high, senderId, status]
       );
