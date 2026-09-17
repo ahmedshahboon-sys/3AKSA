@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE rooms (
   id uuid PRIMARY KEY,
   slug varchar(80) NOT NULL UNIQUE,
@@ -57,5 +55,3 @@ CREATE TABLE room_invites (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (room_id, user_id)
 );
-
-COMMIT;
