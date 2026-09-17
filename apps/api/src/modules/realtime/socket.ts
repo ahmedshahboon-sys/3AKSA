@@ -5,6 +5,11 @@ import { query } from '../../db.js';
 import { closeRedis } from '../../redis.js';
 import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '../auth/session.js';
 import {
+  createRoomTextMessage,
+  roomMessageDto,
+  softDeleteRoomMessage
+} from '../messages/service.js';
+import {
   refreshRoomPresence,
   removeRoomPresence,
   roomPresenceSnapshot,
@@ -69,12 +74,31 @@ function roomPolicyError(room: RoomPolicyRow, user: AuthenticatedUser): string |
   return null;
 }
 
+async function blockedPeerIds(userId: string) {
+  const result = await query<{ peer_id: string }>(
+    `SELECT CASE WHEN blocker_id = $1 THEN blocked_id ELSE blocker_id END AS peer_id
+     FROM user_blocks
+     WHERE blocker_id = $1 OR blocked_id = $1`,
+    [userId]
+  );
+  return new Set(result.rows.map((row) => row.peer_id));
+}
+
 export function attachRealtime(app: FastifyInstance) {
   const io = new SocketIOServer(app.server, {
     path: env.SOCKET_PATH,
     serveClient: false,
     transports: ['websocket', 'polling']
   });
+
+  async function emitMessageRespectingBlocks(roomId: string, senderId: string, message: unknown) {
+    const blocked = await blockedPeerIds(senderId);
+    const sockets = await io.in(roomChannel(roomId)).fetchSockets();
+    for (const memberSocket of sockets) {
+      const member = memberSocket.data as SocketUserData;
+      if (!blocked.has(member.user.id)) memberSocket.emit('room:message', { message });
+    }
+  }
 
   io.use(async (socket, next) => {
     try {
@@ -146,6 +170,57 @@ export function attachRealtime(app: FastifyInstance) {
         safeAck(callback, { ok: false, error: 'REALTIME_ERROR' });
       }
     });
+
+    socket.on(
+      'room:message:send',
+      async (payload: { roomId?: string; text?: string } | undefined, callback?: Ack) => {
+        try {
+          const roomId = payload?.roomId?.trim() ?? '';
+          const text = payload?.text?.trim() ?? '';
+          if (!joinedRooms.has(roomId)) return safeAck(callback, { ok: false, error: 'ROOM_NOT_JOINED' });
+          if (text.length < 1 || text.length > 2000) {
+            return safeAck(callback, { ok: false, error: 'INVALID_MESSAGE_TEXT' });
+          }
+
+          const room = await getRoomPolicy(roomId, user.id);
+          if (!room) return safeAck(callback, { ok: false, error: 'ROOM_NOT_FOUND' });
+          const policyError = roomPolicyError(room, user);
+          if (policyError) return safeAck(callback, { ok: false, error: policyError });
+
+          const presence = await tryJoinRoomPresence(room.id, user.id, socket.id, room.max_users);
+          if (!presence.allowed) return safeAck(callback, { ok: false, error: 'ROOM_FULL' });
+
+          const message = await createRoomTextMessage(room.id, user.id, text);
+          const dto = roomMessageDto(message);
+          await emitMessageRespectingBlocks(room.id, user.id, dto);
+          safeAck(callback, { ok: true, message: dto });
+        } catch (error) {
+          socket.data.lastRealtimeError = error instanceof Error ? error.message : 'unknown';
+          safeAck(callback, { ok: false, error: 'MESSAGE_SEND_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
+      'room:message:delete',
+      async (payload: { roomId?: string; messageId?: string } | undefined, callback?: Ack) => {
+        try {
+          const roomId = payload?.roomId?.trim() ?? '';
+          const messageId = payload?.messageId?.trim() ?? '';
+          if (!joinedRooms.has(roomId)) return safeAck(callback, { ok: false, error: 'ROOM_NOT_JOINED' });
+          if (!UUID_RE.test(messageId)) return safeAck(callback, { ok: false, error: 'MESSAGE_NOT_FOUND_OR_FORBIDDEN' });
+
+          const deleted = await softDeleteRoomMessage(messageId, user.id, 'manual');
+          if (!deleted || deleted.room_id !== roomId) {
+            return safeAck(callback, { ok: false, error: 'MESSAGE_NOT_FOUND_OR_FORBIDDEN' });
+          }
+          io.to(roomChannel(roomId)).emit('room:message-deleted', { roomId, messageId });
+          safeAck(callback, { ok: true, roomId, messageId });
+        } catch {
+          safeAck(callback, { ok: false, error: 'MESSAGE_DELETE_FAILED' });
+        }
+      }
+    );
 
     socket.on('room:leave', async (payload: { roomId?: string } | undefined, callback?: Ack) => {
       try {
