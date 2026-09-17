@@ -74,7 +74,8 @@ export async function registerMessageRoutes(app: FastifyInstance, options: { bas
         if (Number.isNaN(before.getTime())) return reply.code(400).send({ error: 'INVALID_CURSOR' });
       }
 
-      const messages = await listRoomMessages(room.id, user.id, { before, limit });
+      const historyOptions = before ? { before, limit } : { limit };
+      const messages = await listRoomMessages(room.id, user.id, historyOptions);
       return reply.send({ messages: messages.map(roomMessageDto) });
     }
   );
