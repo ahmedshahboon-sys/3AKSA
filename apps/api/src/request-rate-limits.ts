@@ -8,7 +8,7 @@ function requestSubject(authorization: string | undefined, ip: string) {
 
 export function registerRequestRateLimits(app: FastifyInstance) {
   app.addHook('preHandler', async (request, reply) => {
-    const route = request.routeOptions.url;
+    const route = request.routeOptions.url ?? '';
     const subject = requestSubject(request.headers.authorization, request.ip);
 
     let bucket: string | null = null;
