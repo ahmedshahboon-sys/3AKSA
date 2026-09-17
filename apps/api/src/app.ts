@@ -4,6 +4,7 @@ import { db } from './db.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
 import { registerHealthRoutes } from './modules/health/routes.js';
 import { registerMessageRoutes } from './modules/messages/routes.js';
+import { registerNearbyRoutes } from './modules/nearby/routes.js';
 import { registerPrivateRoutes } from './modules/private/routes.js';
 import { attachRealtime } from './modules/realtime/socket.js';
 import { registerRoomRoutes } from './modules/rooms/routes.js';
@@ -32,6 +33,10 @@ export async function buildApp() {
   });
 
   await registerSocialRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerNearbyRoutes(app, {
     basePath: apiBasePath
   });
 
