@@ -33,6 +33,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NODE_ENV: test
       APP_VERSION: phase2-ci
@@ -70,5 +79,5 @@ jobs:
       - name: Apply PostgreSQL migrations
         run: pnpm --filter @3aksa/api db:migrate
 
-      - name: Run auth integration tests
+      - name: Run backend integration tests
         run: pnpm --filter @3aksa/api test
