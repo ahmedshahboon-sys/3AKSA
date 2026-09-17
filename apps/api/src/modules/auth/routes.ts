@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../../db.js';
+import { consumeRateLimit } from '../../rate-limit.js';
 import {
   createSessionToken,
   hashPassword,
@@ -63,6 +64,11 @@ function bearerToken(request: FastifyRequest): string | null {
   if (!authorization) return null;
   const [scheme, token] = authorization.split(' ');
   return scheme?.toLowerCase() === 'bearer' && token ? token.trim() : null;
+}
+
+function rateLimited(reply: FastifyReply, retryAfterSeconds: number) {
+  reply.header('Retry-After', String(retryAfterSeconds));
+  return reply.code(429).send({ error: 'RATE_LIMITED', retryAfterSeconds });
 }
 
 async function installationIsBlocked(installationId?: string): Promise<boolean> {
@@ -127,6 +133,15 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
     if (!validatePassword(password)) {
       return reply.code(400).send({ error: 'WEAK_PASSWORD' });
     }
+
+    const registrationLimit = await consumeRateLimit(
+      'auth-register',
+      deviceId ? `device:${deviceId}` : `ip:${request.ip}`,
+      3,
+      60 * 60
+    );
+    if (!registrationLimit.allowed) return rateLimited(reply, registrationLimit.retryAfterSeconds);
+
     if (await installationIsBlocked(deviceId)) {
       return reply.code(403).send({ error: 'DEVICE_BLOCKED' });
     }
@@ -195,10 +210,19 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
     const platform = request.body.platform?.trim().slice(0, 24) || undefined;
 
     if (!loginRaw || !password) return reply.code(400).send({ error: 'INVALID_CREDENTIALS' });
-    if (await installationIsBlocked(deviceId)) return reply.code(403).send({ error: 'DEVICE_BLOCKED' });
 
     const normalizedUsername = normalizeUsername(loginRaw);
     const normalizedPhone = normalizePhone(loginRaw);
+    const loginLimit = await consumeRateLimit(
+      'auth-login',
+      `${request.ip}:${normalizedUsername || normalizedPhone}`,
+      10,
+      5 * 60
+    );
+    if (!loginLimit.allowed) return rateLimited(reply, loginLimit.retryAfterSeconds);
+
+    if (await installationIsBlocked(deviceId)) return reply.code(403).send({ error: 'DEVICE_BLOCKED' });
+
     const lookup = await query<UserWithPasswordRow>(
       `SELECT id, username, display_name, phone_e164, gender, status, created_at, password_hash
        FROM users
