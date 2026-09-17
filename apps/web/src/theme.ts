@@ -15,11 +15,19 @@ function resolveMode(theme: AppTheme): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
+function resolveThemeColor(theme: AppTheme) {
+  const mode = resolveMode(theme);
+  if (theme.startsWith('pink-')) return mode === 'dark' ? '#151216' : '#fff7fb';
+  return mode === 'dark' ? '#111315' : '#f7f8fa';
+}
+
 export function applyTheme(theme: AppTheme) {
   const root = document.documentElement;
   root.dataset.mode = resolveMode(theme);
   root.dataset.palette = theme.startsWith('pink-') ? 'pink' : 'main';
   root.style.colorScheme = root.dataset.mode;
+  const metaTheme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.content = resolveThemeColor(theme);
 }
 
 export function getInitialTheme(): AppTheme {
