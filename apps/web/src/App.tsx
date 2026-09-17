@@ -1,40 +1,66 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Icon } from './icons';
+import {
+  AccountScreen,
+  ConversationScreen,
+  HomeScreen,
+  NearbyScreen,
+  NotificationsScreen,
+  OfflineScreen,
+  PrivateScreen,
+  RoomChatScreen,
+  RoomsScreen,
+  StoreScreen,
+  TvScreen,
+  WalletScreen,
+} from './screens';
 
-const navItems = ['الرئيسية', 'الغرف', 'القريبون', 'الخاص', 'حسابي'];
+const navItems = [
+  { label: 'الرئيسية', path: '/', icon: 'home' as const },
+  { label: 'الغرف', path: '/rooms', icon: 'rooms' as const },
+  { label: 'القريبون', path: '/nearby', icon: 'nearby' as const },
+  { label: 'الخاص', path: '/private', icon: 'private' as const },
+  { label: 'حسابي', path: '/account', icon: 'account' as const },
+];
 
-function FoundationHome() {
+function BottomNavigation() {
   return (
-    <main className="page-shell">
-      <section className="hero-card" aria-labelledby="foundation-title">
-        <span className="brand-mark" aria-hidden="true">3A</span>
-        <div>
-          <p className="eyebrow">3AKSA · عكسة</p>
-          <h1 id="foundation-title">الهيكلية الأساسية جاهزة للبناء</h1>
-          <p className="muted">
-            واجهة Mobile First مستقلة ومهيأة للعمل تحت مسار قابل للتغيير بدون ربطها برمجياً بمربوعة.
-          </p>
-        </div>
-      </section>
-    </main>
+    <nav className="bottom-nav" aria-label="التنقل الرئيسي">
+      {navItems.map((item) => (
+        <NavLink key={item.path} to={item.path} end={item.path === '/'} className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <Icon name={item.icon} size={22} />
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+function AppShell() {
+  const location = useLocation();
+  const isImmersive = /^\/rooms\/[^/]+$/.test(location.pathname) || /^\/private\/[^/]+$/.test(location.pathname);
+  return (
+    <div className={isImmersive ? 'app-shell immersive-shell' : 'app-shell'}>
+      <Routes>
+        <Route path="/" element={<HomeScreen />} />
+        <Route path="/rooms" element={<RoomsScreen />} />
+        <Route path="/rooms/:roomId" element={<RoomChatScreen />} />
+        <Route path="/nearby" element={<NearbyScreen />} />
+        <Route path="/private" element={<PrivateScreen />} />
+        <Route path="/private/:userId" element={<ConversationScreen />} />
+        <Route path="/account" element={<AccountScreen />} />
+        <Route path="/wallet" element={<WalletScreen />} />
+        <Route path="/store" element={<StoreScreen />} />
+        <Route path="/tv" element={<TvScreen />} />
+        <Route path="/notifications" element={<NotificationsScreen />} />
+        <Route path="/offline" element={<OfflineScreen />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      {isImmersive ? null : <BottomNavigation />}
+    </div>
   );
 }
 
 export function App() {
-  return (
-    <div className="app-shell">
-      <Routes>
-        <Route path="/" element={<FoundationHome />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-
-      <nav className="bottom-nav" aria-label="التنقل الرئيسي">
-        {navItems.map((label, index) => (
-          <button key={label} className={index === 0 ? 'nav-item active' : 'nav-item'} type="button">
-            <span className="nav-dot" aria-hidden="true" />
-            <span>{label}</span>
-          </button>
-        ))}
-      </nav>
-    </div>
-  );
+  return <AppShell />;
 }

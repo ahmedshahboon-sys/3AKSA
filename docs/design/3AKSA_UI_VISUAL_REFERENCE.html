@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3AKSA Visual Source</title>
+<style>
+:root {
+  --bg:#111315; --card:#1A1D21; --elev:#22262B; --text:#F5F7FA; --muted:#A7AFB8;
+  --lime:#B8F000; --green:#8FCB00; --blue:#32B8FF; --gold:#F5C451;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Readex Pro",system-ui,sans-serif}
+.wrap{max-width:1100px;margin:auto;padding:24px}
+.hero{display:flex;gap:18px;align-items:center;margin-bottom:24px}
+.hero img{width:96px;height:96px;border-radius:24px}
+h1,h2,h3{margin:.2em 0 .6em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid #2b3036;border-radius:22px;padding:16px}
+.nav{display:flex;justify-content:space-between;gap:8px;background:#15181c;border:1px solid #2b3036;padding:12px;border-radius:20px;margin-top:14px}
+.nav div{text-align:center;flex:1;color:var(--muted)}
+.nav .active{color:var(--lime);font-weight:700}
+.chip{display:inline-block;padding:8px 12px;border-radius:999px;background:var(--elev);margin:3px;color:var(--muted)}
+.chip.active{background:var(--lime);color:#111;font-weight:700}
+.msg{background:var(--elev);padding:10px 12px;border-radius:16px;margin:8px 0;max-width:85%}
+.msg.me{background:var(--lime);color:#111;margin-right:auto}
+.btn{display:inline-block;background:var(--lime);color:#111;padding:10px 14px;border-radius:14px;font-weight:700;margin:4px}
+.muted{color:var(--muted);font-size:.92rem}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatch{width:140px;padding:14px;border-radius:14px;color:#111;font-weight:700}
+.warn{border:1px solid #5b3232;background:#241819;color:#ffd9d9;padding:14px;border-radius:16px}
+.screen{min-height:320px;display:flex;flex-direction:column;justify-content:space-between}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <img src="../logos/3AKSA-logo-main-256.png" alt="3AKSA logo">
+    <div>
+      <h1>3AKSA / عكسة</h1>
+      <div class="muted">Visual Source of Truth — المرجع البصري الرسمي</div>
+    </div>
+  </div>
+
+  <h2>الألوان</h2>
+  <div class="swatches">
+    <div class="swatch" style="background:#B8F000">#B8F000</div>
+    <div class="swatch" style="background:#32B8FF">#32B8FF</div>
+    <div class="swatch" style="background:#F5C451">#F5C451</div>
+    <div class="swatch" style="background:#F7F8FA">#F7F8FA</div>
+  </div>
+
+  <h2>نماذج هيكلية للشاشات</h2>
+  <div class="grid">
+    <div class="card screen">
+      <div>
+        <h3>الرئيسية</h3>
+        <div class="card"><b>مساء الخير 👋</b><div class="muted">🟢 متصل</div></div>
+        <p><b>الغرف النشطة الآن</b></p>
+        <div class="card">سهرة طرابلس · 34 موجود</div>
+        <div class="card">سوالف عامة · 21 موجود</div>
+        <p><b>الأصدقاء Online</b></p>
+        <div class="muted">● ● ● ● ●</div>
+      </div>
+      <div class="nav"><div class="active">الرئيسية</div><div>الغرف</div><div>القريبون</div><div>الخاص</div><div>حسابي</div></div>
+    </div>
+
+    <div class="card screen">
+      <div>
+        <h3>الغرف</h3>
+        <span class="chip active">الكل</span><span class="chip">أولاد</span><span class="chip">بنات</span><span class="chip">المفضلة</span>
+        <div class="card"><b>سهرة طرابلس</b><div class="muted">34 موجود · TV مفعّل</div><span class="btn">ادخل</span></div>
+        <div class="card"><b>سوالف عامة</b><div class="muted">21 موجود</div><span class="btn">ادخل</span></div>
+      </div>
+      <div class="nav"><div>الرئيسية</div><div class="active">الغرف</div><div>القريبون</div><div>الخاص</div><div>حسابي</div></div>
+    </div>
+
+    <div class="card screen">
+      <div>
+        <h3>داخل الغرفة</h3>
+        <div class="card"><b>TV: ليبيا الرياضية</b><div class="muted">مشاهدة فقط · صوت/ملء الشاشة</div></div>
+        <div class="msg">خالد: مرحبا بالجميع 👋</div>
+        <div class="msg">سارة: سهرة نار 🔥</div>
+        <div class="msg me">تمام 😄</div>
+        <div class="card"><span class="muted">😊  اكتب حاجة...</span> &nbsp; 🎙️ &nbsp; ➤</div>
+      </div>
+      <div class="muted">🎙️ = Voice Note فقط، مش مكالمة</div>
+    </div>
+
+    <div class="card screen">
+      <div>
+        <h3>القريبون</h3>
+        <span class="chip active">الكل</span><span class="chip">أولاد</span><span class="chip">بنات</span>
+        <div class="card"><b>محمد ♂</b><div class="muted">650 متر · 3 أصدقاء مشتركين</div><span class="btn">إضافة</span></div>
+        <div class="card"><b>سارة ♀</b><div class="muted">1.2 كم · صديق مشترك</div><span class="btn">مراسلة</span></div>
+      </div>
+      <div class="nav"><div>الرئيسية</div><div>الغرف</div><div class="active">القريبون</div><div>الخاص</div><div>حسابي</div></div>
+    </div>
+
+    <div class="card screen">
+      <div>
+        <h3>الخاص</h3>
+        <span class="chip active">المحادثات</span><span class="chip">طلبات المراسلة</span>
+        <div class="card"><b>أحمد</b><div class="muted">تمام، نشوفك بكرة</div></div>
+        <div class="card"><b>رهف</b><div class="muted">🎙️ Voice Note</div></div>
+        <div class="warn">لا كاميرا · لا صور · لا مكالمة صوت · لا مكالمة فيديو</div>
+      </div>
+      <div class="nav"><div>الرئيسية</div><div>الغرف</div><div>القريبون</div><div class="active">الخاص</div><div>حسابي</div></div>
+    </div>
+
+    <div class="card screen">
+      <div>
+        <h3>حسابي</h3>
+        <div class="card"><b>𓆩 أحمد 𓆪</b><div class="muted">🟢 متصل</div></div>
+        <div class="card"><b>الرصيد: 12.500 د.ل</b><br><span class="btn">شحن</span><span class="btn">تحويل</span></div>
+        <div class="card">المتجر · مشترياتي · الأصوات · التفاعلات · الإعدادات</div>
+      </div>
+      <div class="nav"><div>الرئيسية</div><div>الغرف</div><div>القريبون</div><div>الخاص</div><div class="active">حسابي</div></div>
+    </div>
+  </div>
+
+  <h2>الثيم البناتي</h2>
+  <div class="hero">
+    <img src="../logos/3AKSA-logo-pink-256.png" alt="3AKSA pink logo">
+    <div class="muted">نفس البنية والوظائف تمامًا، فقط لوحة ألوان وردية/فوشيا متناسقة.</div>
+  </div>
+
+  <div class="warn">
+    <b>قاعدة V1:</b> Text + Voice Notes + Stickers + Reactions/Gifts. لا Calls ولا Video Calls ولا Voice Rooms ولا صور/فيديو داخل الرسائل.
+  </div>
+</div>
+</body>
+</html>
