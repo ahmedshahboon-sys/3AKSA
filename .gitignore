@@ -1,0 +1,80 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+secrets/
+
+# Private keys / certificates / signing material
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+*.cer
+*.crt
+
+# Android release artifacts
+*.apk
+*.aab
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/android/**/build/
+
+# Runtime data / uploads / storage
+.data/
+storage/
+uploads/
+tmp/
+*.dump
+*.sql.gz
+backups/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Databases / local state
+*.sqlite
+*.sqlite3
+*.db
+redis-data/
+postgres-data/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# Test / tooling caches
+.cache/
+.turbo/
+.nx/
+playwright-report/
+test-results/
+
+# Production/user data must never be committed
+production-data/
+user-data/
+private-uploads/
