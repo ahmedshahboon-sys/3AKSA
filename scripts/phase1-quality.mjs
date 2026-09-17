@@ -10,6 +10,7 @@ const mustNotContain = (text, value, label) => {
 
 const app = read('apps/web/src/App.tsx');
 const screens = read('apps/web/src/screens.tsx');
+const ui = read('apps/web/src/ui.tsx');
 const main = read('apps/web/src/main.tsx');
 const theme = read('apps/web/src/theme.ts');
 const manifest = read('apps/web/public/manifest.webmanifest');
@@ -33,11 +34,11 @@ for (const feature of ['RoomChatScreen', 'ConversationScreen', 'WalletScreen', '
 }
 
 for (const forbidden of ['camera', 'video-call', 'voice-call', 'VoiceCall', 'VideoCall']) {
-  mustNotContain(screens, forbidden, 'V1 media/call control');
+  mustNotContain(`${screens}\n${ui}`, forbidden, 'V1 media/call control');
 }
 
 mustContain(screens, 'تسجيل صوتي', 'voice note composer control');
-mustContain(screens, 'بدون صور أو مكالمات', 'V1 guard copy');
+mustContain(ui, 'بدون صور أو مكالمات', 'V1 guard copy');
 mustContain(main, "@fontsource/readex-pro/400.css", 'Readex Pro');
 mustContain(main, "VITE_PUBLIC_BASE_PATH || '/3aksa/'", 'base path');
 mustContain(theme, 'pink-light', 'pink theme');
