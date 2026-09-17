@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ZIP_PATH="${1:-3AKSA_VISUAL_SOURCE_OF_TRUTH.zip}"
+ZIP_PATH="${1:-docs/design/source/3AKSA_VISUAL_SOURCE_OF_TRUTH.zip}"
 OUT_DIR="apps/web/public/icons"
 
 if [[ ! -f "$ZIP_PATH" ]]; then
   echo "Missing visual source package: $ZIP_PATH" >&2
-  echo "Usage: bash scripts/import-visual-assets.sh /path/to/3AKSA_VISUAL_SOURCE_OF_TRUTH.zip" >&2
+  echo "Expected the owner-approved package at docs/design/source/3AKSA_VISUAL_SOURCE_OF_TRUTH.zip" >&2
+  echo "Or pass an explicit path: bash scripts/import-visual-assets.sh /path/to/3AKSA_VISUAL_SOURCE_OF_TRUTH.zip" >&2
   exit 1
 fi
 
