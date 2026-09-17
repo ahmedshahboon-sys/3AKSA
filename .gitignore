@@ -9,9 +9,6 @@ coverage/
 .vite/
 *.tsbuildinfo
 
-# Materialized visual assets (generated from the committed source-of-truth ZIP)
-apps/web/public/icons/
-
 # Environment and secrets
 .env
 .env.*
