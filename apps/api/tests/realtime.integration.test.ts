@@ -170,7 +170,10 @@ test('realtime presence and 24-hour room text messaging work without permanent m
     assert.equal(history.statusCode, 200, history.body);
     assert.equal(history.json<{ messages: Array<{ id: string }> }>().messages[0]?.id, sent.message.id);
 
-    await query("UPDATE room_messages SET expires_at = now() - interval '1 second' WHERE id = $1", [sent.message.id]);
+    await query(
+      "UPDATE room_messages SET created_at = now() - interval '25 hours', expires_at = now() - interval '1 hour' WHERE id = $1",
+      [sent.message.id]
+    );
     const expiredHistory = await app.inject({
       method: 'GET',
       url: `/3aksa/api/rooms/${boysRoomId}/messages`,
