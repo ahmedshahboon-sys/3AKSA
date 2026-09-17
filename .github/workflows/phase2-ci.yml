@@ -42,7 +42,7 @@ jobs:
       SOCKET_PATH: /3aksa/socket.io
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/threeaksa_test
       REDIS_URL: redis://127.0.0.1:6379/0
-      REDIS_KEY_PREFIX: 3aksa:test:
+      REDIS_KEY_PREFIX: "3aksa:test:"
       STORAGE_DRIVER: local
       STORAGE_LOCAL_ROOT: ./.data/test-storage
       SESSION_SECRET: phase2-ci-session-secret-00000000000000000000000000000000
