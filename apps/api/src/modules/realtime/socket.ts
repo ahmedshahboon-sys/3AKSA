@@ -4,11 +4,19 @@ import { env } from '../../config.js';
 import { query } from '../../db.js';
 import { closeRedis } from '../../redis.js';
 import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '../auth/session.js';
+import { normalizeUsername } from '../auth/security.js';
 import {
   createRoomTextMessage,
   roomMessageDto,
   softDeleteRoomMessage
 } from '../messages/service.js';
+import {
+  areBlocked,
+  privateMessageDto,
+  sendActivePrivateText,
+  startPrivateText,
+  type PrivateConversationRow
+} from '../private/service.js';
 import {
   refreshRoomPresence,
   removeRoomPresence,
@@ -38,6 +46,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 function roomChannel(roomId: string) {
   return `room:${roomId}`;
+}
+
+function privateChannel(conversationId: string) {
+  return `private:${conversationId}`;
+}
+
+function userChannel(userId: string) {
+  return `user:${userId}`;
 }
 
 function safeAck(callback: unknown, payload: Record<string, unknown>) {
@@ -84,6 +100,30 @@ async function blockedPeerIds(userId: string) {
   return new Set(result.rows.map((row) => row.peer_id));
 }
 
+async function privateConversationForUser(conversationId: string, userId: string) {
+  if (!UUID_RE.test(conversationId)) return null;
+  const result = await query<PrivateConversationRow>(
+    `SELECT * FROM private_conversations
+     WHERE id = $1
+       AND status = 'active'
+       AND (user_low_id = $2 OR user_high_id = $2)
+     LIMIT 1`,
+    [conversationId, userId]
+  );
+  return result.rows[0] ?? null;
+}
+
+async function lookupMessageTarget(username: string) {
+  const result = await query<{ id: string; username: string; display_name: string; gender: 'boy' | 'girl' }>(
+    `SELECT id, username, display_name, gender
+     FROM users
+     WHERE username_normalized = $1 AND status = 'active'
+     LIMIT 1`,
+    [normalizeUsername(username)]
+  );
+  return result.rows[0] ?? null;
+}
+
 export function attachRealtime(app: FastifyInstance) {
   const io = new SocketIOServer(app.server, {
     path: env.SOCKET_PATH,
@@ -121,6 +161,8 @@ export function attachRealtime(app: FastifyInstance) {
     const data = socket.data as SocketUserData;
     const user = data.user;
     const joinedRooms = new Set<string>();
+    const joinedPrivateConversations = new Set<string>();
+    void socket.join(userChannel(user.id));
 
     async function leaveRoom(roomId: string) {
       if (!joinedRooms.has(roomId)) return;
@@ -219,6 +261,135 @@ export function attachRealtime(app: FastifyInstance) {
         } catch {
           safeAck(callback, { ok: false, error: 'MESSAGE_DELETE_FAILED' });
         }
+      }
+    );
+
+    socket.on(
+      'private:message:start',
+      async (payload: { username?: string; text?: string } | undefined, callback?: Ack) => {
+        try {
+          const username = payload?.username?.trim() ?? '';
+          const text = payload?.text?.trim() ?? '';
+          if (text.length < 1 || text.length > 2000) {
+            return safeAck(callback, { ok: false, error: 'INVALID_MESSAGE_TEXT' });
+          }
+          const target = await lookupMessageTarget(username);
+          if (!target) return safeAck(callback, { ok: false, error: 'USER_NOT_FOUND' });
+          if (target.id === user.id) return safeAck(callback, { ok: false, error: 'CANNOT_MESSAGE_SELF' });
+
+          const result = await startPrivateText(user.id, target.id, text);
+          const message = privateMessageDto(result.message);
+          const conversation = {
+            id: result.conversation.id,
+            status: result.conversation.status,
+            peer: {
+              id: target.id,
+              username: target.username,
+              displayName: target.display_name,
+              gender: target.gender
+            }
+          };
+
+          if (result.conversation.status === 'active') {
+            joinedPrivateConversations.add(result.conversation.id);
+            await socket.join(privateChannel(result.conversation.id));
+            io.to([
+              privateChannel(result.conversation.id),
+              userChannel(user.id),
+              userChannel(target.id)
+            ]).emit('private:message', { conversationId: result.conversation.id, message });
+          } else {
+            io.to(userChannel(target.id)).emit('private:request', {
+              conversationId: result.conversation.id,
+              peer: {
+                id: user.id,
+                username: user.username,
+                displayName: user.display_name,
+                gender: user.gender
+              },
+              message
+            });
+          }
+          safeAck(callback, { ok: true, conversation, message });
+        } catch (error) {
+          const code = error instanceof Error ? error.message : '';
+          if (
+            code === 'RELATIONSHIP_BLOCKED' ||
+            code === 'MESSAGE_REQUEST_PENDING' ||
+            code === 'INCOMING_REQUEST_PENDING' ||
+            code === 'MESSAGE_REQUEST_REJECTED'
+          ) {
+            return safeAck(callback, { ok: false, error: code });
+          }
+          socket.data.lastRealtimeError = code || 'unknown';
+          safeAck(callback, { ok: false, error: 'PRIVATE_MESSAGE_START_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
+      'private:conversation:join',
+      async (payload: { conversationId?: string } | undefined, callback?: Ack) => {
+        try {
+          const conversationId = payload?.conversationId?.trim() ?? '';
+          const conversation = await privateConversationForUser(conversationId, user.id);
+          if (!conversation) return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_FOUND' });
+          const peerId = conversation.user_low_id === user.id ? conversation.user_high_id : conversation.user_low_id;
+          if (await areBlocked(user.id, peerId)) {
+            return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_FOUND' });
+          }
+          joinedPrivateConversations.add(conversation.id);
+          await socket.join(privateChannel(conversation.id));
+          safeAck(callback, { ok: true, conversationId: conversation.id });
+        } catch {
+          safeAck(callback, { ok: false, error: 'PRIVATE_JOIN_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
+      'private:message:send',
+      async (payload: { conversationId?: string; text?: string } | undefined, callback?: Ack) => {
+        try {
+          const conversationId = payload?.conversationId?.trim() ?? '';
+          const text = payload?.text?.trim() ?? '';
+          if (!joinedPrivateConversations.has(conversationId)) {
+            return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_JOINED' });
+          }
+          if (text.length < 1 || text.length > 2000) {
+            return safeAck(callback, { ok: false, error: 'INVALID_MESSAGE_TEXT' });
+          }
+
+          const result = await sendActivePrivateText(conversationId, user.id, text);
+          const message = privateMessageDto(result.message);
+          io.to([
+            privateChannel(result.conversation.id),
+            userChannel(user.id),
+            userChannel(result.peerId)
+          ]).emit('private:message', { conversationId: result.conversation.id, message });
+          safeAck(callback, { ok: true, message });
+        } catch (error) {
+          const code = error instanceof Error ? error.message : '';
+          if (code === 'RELATIONSHIP_BLOCKED') return safeAck(callback, { ok: false, error: code });
+          if (code === 'CONVERSATION_NOT_ACTIVE') {
+            return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_FOUND' });
+          }
+          socket.data.lastRealtimeError = code || 'unknown';
+          safeAck(callback, { ok: false, error: 'PRIVATE_MESSAGE_SEND_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
+      'private:conversation:leave',
+      async (payload: { conversationId?: string } | undefined, callback?: Ack) => {
+        const conversationId = payload?.conversationId?.trim() ?? '';
+        if (!joinedPrivateConversations.has(conversationId)) {
+          return safeAck(callback, { ok: true, conversationId });
+        }
+        joinedPrivateConversations.delete(conversationId);
+        await socket.leave(privateChannel(conversationId));
+        safeAck(callback, { ok: true, conversationId });
       }
     );
 
