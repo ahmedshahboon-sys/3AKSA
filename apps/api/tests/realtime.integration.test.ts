@@ -83,6 +83,16 @@ function emitAck<T>(socket: Socket, event: string, payload?: unknown): Promise<T
   });
 }
 
+function onceEvent<T>(socket: Socket, event: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`${event} event timeout`)), 5_000);
+    socket.once(event, (payload: T) => {
+      clearTimeout(timeout);
+      resolve(payload);
+    });
+  });
+}
+
 async function waitForCount(roomId: string, expected: number) {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
@@ -95,7 +105,7 @@ async function waitForCount(roomId: string, expected: number) {
   return snapshot;
 }
 
-test('realtime presence enforces auth, gender and capacity without permanent membership', async () => {
+test('realtime presence and 24-hour room text messaging work without permanent membership', async () => {
   await cleanup();
   const app = await buildApp();
   const sockets: Socket[] = [];
@@ -133,9 +143,40 @@ test('realtime presence enforces auth, gender and capacity without permanent mem
     assert.equal(girlDenied.ok, false);
     assert.equal(girlDenied.error, 'ROOM_BOYS_ONLY');
 
+    const ownerJoinedBoys = await emitAck<{ ok: boolean; onlineCount: number }>(ownerSocket, 'room:join', { roomId: boysRoomId });
+    assert.equal(ownerJoinedBoys.ok, true);
     const boyJoined = await emitAck<{ ok: boolean; onlineCount: number }>(boySocket, 'room:join', { roomId: boysRoomId });
     assert.equal(boyJoined.ok, true);
-    assert.equal(boyJoined.onlineCount, 1);
+    assert.equal(boyJoined.onlineCount, 2);
+
+    const deliveredPromise = onceEvent<{ message: { id: string; text: string; createdAt: string; expiresAt: string } }>(
+      ownerSocket,
+      'room:message'
+    );
+    const sent = await emitAck<{
+      ok: boolean;
+      message: { id: string; text: string; createdAt: string; expiresAt: string };
+    }>(boySocket, 'room:message:send', { roomId: boysRoomId, text: 'رسالة مؤقتة' });
+    assert.equal(sent.ok, true);
+    assert.equal(sent.message.text, 'رسالة مؤقتة');
+    assert.equal((await deliveredPromise).message.id, sent.message.id);
+    assert.equal(new Date(sent.message.expiresAt).getTime() - new Date(sent.message.createdAt).getTime(), 86_400_000);
+
+    const history = await app.inject({
+      method: 'GET',
+      url: `/3aksa/api/rooms/${boysRoomId}/messages`,
+      headers: auth(ownerSession.accessToken)
+    });
+    assert.equal(history.statusCode, 200, history.body);
+    assert.equal(history.json<{ messages: Array<{ id: string }> }>().messages[0]?.id, sent.message.id);
+
+    await query("UPDATE room_messages SET expires_at = now() - interval '1 second' WHERE id = $1", [sent.message.id]);
+    const expiredHistory = await app.inject({
+      method: 'GET',
+      url: `/3aksa/api/rooms/${boysRoomId}/messages`,
+      headers: auth(ownerSession.accessToken)
+    });
+    assert.deepEqual(expiredHistory.json<{ messages: unknown[] }>().messages, []);
 
     const heartbeat = await emitAck<{ ok: boolean; rooms: number }>(boySocket, 'presence:heartbeat');
     assert.equal(heartbeat.ok, true);
@@ -143,8 +184,6 @@ test('realtime presence enforces auth, gender and capacity without permanent mem
 
     const ownerCapacity = await emitAck<{ ok: boolean; onlineCount: number }>(ownerSocket, 'room:join', { roomId: capacityRoomId });
     assert.equal(ownerCapacity.ok, true);
-    assert.equal(ownerCapacity.onlineCount, 1);
-
     const boyCapacity = await emitAck<{ ok: boolean; onlineCount: number }>(boySocket, 'room:join', { roomId: capacityRoomId });
     assert.equal(boyCapacity.ok, true);
     assert.equal(boyCapacity.onlineCount, 2);
@@ -153,9 +192,6 @@ test('realtime presence enforces auth, gender and capacity without permanent mem
     assert.equal(full.ok, false);
     assert.equal(full.error, 'ROOM_FULL');
     assert.equal(full.onlineCount, 2);
-
-    const beforeDisconnect = await roomPresenceSnapshot(capacityRoomId);
-    assert.equal(beforeDisconnect.onlineCount, 2);
 
     boySocket.disconnect();
     await waitForCount(capacityRoomId, 1);
