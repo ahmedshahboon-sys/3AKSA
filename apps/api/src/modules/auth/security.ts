@@ -1,10 +1,23 @@
-import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { promisify } from 'node:util';
+import {
+  createHash,
+  randomBytes,
+  scrypt as scryptCallback,
+  timingSafeEqual,
+  type ScryptOptions
+} from 'node:crypto';
 import { env } from '../../config.js';
 
-const scrypt = promisify(scryptCallback);
 const KEY_LENGTH = 64;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function scrypt(password: string, salt: Buffer, keyLength: number, options: ScryptOptions): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCallback(password, salt, keyLength, options, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
+}
 
 export function normalizeUsername(value: string): string {
   return value.normalize('NFKC').trim().toLowerCase();
@@ -35,12 +48,12 @@ export function validatePassword(value: string): boolean {
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
-  const derived = (await scrypt(`${password}${env.PASSWORD_PEPPER}`, salt, KEY_LENGTH, {
+  const derived = await scrypt(`${password}${env.PASSWORD_PEPPER}`, salt, KEY_LENGTH, {
     N: 16_384,
     r: 8,
     p: 1,
     maxmem: 64 * 1024 * 1024
-  })) as Buffer;
+  });
 
   return `scrypt$16384$8$1$${salt.toString('base64url')}$${derived.toString('base64url')}`;
 }
@@ -51,12 +64,12 @@ export async function verifyPassword(password: string, encoded: string): Promise
 
   const expected = Buffer.from(expectedRaw, 'base64url');
   const salt = Buffer.from(saltRaw, 'base64url');
-  const derived = (await scrypt(`${password}${env.PASSWORD_PEPPER}`, salt, expected.length, {
+  const derived = await scrypt(`${password}${env.PASSWORD_PEPPER}`, salt, expected.length, {
     N: Number(nRaw),
     r: Number(rRaw),
     p: Number(pRaw),
     maxmem: 64 * 1024 * 1024
-  })) as Buffer;
+  });
 
   return expected.length === derived.length && timingSafeEqual(expected, derived);
 }
