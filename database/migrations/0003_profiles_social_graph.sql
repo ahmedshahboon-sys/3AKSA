@@ -1,5 +1,3 @@
-BEGIN;
-
 ALTER TABLE users
   ADD COLUMN bio varchar(240),
   ADD COLUMN nearby_enabled boolean NOT NULL DEFAULT false,
@@ -61,5 +59,3 @@ CREATE TABLE user_reports (
 CREATE INDEX user_reports_target_open_idx
   ON user_reports (target_user_id, created_at DESC)
   WHERE status IN ('open', 'reviewing');
-
-COMMIT;
