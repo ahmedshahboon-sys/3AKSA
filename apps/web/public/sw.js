@@ -1,8 +1,22 @@
-const VERSION = '3aksa-shell-v1';
+const VERSION = '3aksa-shell-v2';
 const scopeUrl = new URL(self.registration.scope);
 const scopePath = scopeUrl.pathname.endsWith('/') ? scopeUrl.pathname : `${scopeUrl.pathname}/`;
+const shellUrl = new URL(scopePath, self.location.origin).toString();
 
-self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(VERSION)
+      .then(async (cache) => {
+        try {
+          const response = await fetch(shellUrl, { cache: 'reload' });
+          if (response.ok) await cache.put(shellUrl, response.clone());
+        } catch {
+          // Installation must still succeed when the network is temporarily unavailable.
+        }
+      })
+      .then(() => self.skipWaiting()),
+  );
+});
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -24,22 +38,38 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith(`${scopePath}api/`) || url.pathname.startsWith(`${scopePath}socket.io/`)) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(VERSION).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match(request)),
-    );
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(request);
+        if (response.ok) {
+          const cache = await caches.open(VERSION);
+          await Promise.all([
+            cache.put(request, response.clone()),
+            cache.put(shellUrl, response.clone()),
+          ]);
+        }
+        return response;
+      } catch {
+        return (await caches.match(request))
+          || (await caches.match(shellUrl))
+          || new Response(
+            '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>3AKSA</title><body><main style="font-family:sans-serif;padding:2rem;text-align:center"><h1>3AKSA | عكسة</h1><p>ما فيش اتصال توا. جرّب مرة ثانية لما يرجع النت.</p></main></body></html>',
+            { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+          );
+      }
+    })());
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (response.ok) caches.open(VERSION).then((cache) => cache.put(request, response.clone()));
-      return response;
-    })),
-  );
+  event.respondWith((async () => {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+
+    const response = await fetch(request);
+    if (response.ok && response.type === 'basic') {
+      const cache = await caches.open(VERSION);
+      await cache.put(request, response.clone());
+    }
+    return response;
+  })());
 });
