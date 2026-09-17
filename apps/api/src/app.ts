@@ -3,6 +3,7 @@ import { apiBasePath, env } from './config.js';
 import { db } from './db.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
 import { registerHealthRoutes } from './modules/health/routes.js';
+import { attachRealtime } from './modules/realtime/socket.js';
 import { registerRoomRoutes } from './modules/rooms/routes.js';
 import { registerSocialRoutes } from './modules/social/routes.js';
 
@@ -35,6 +36,8 @@ export async function buildApp() {
   await registerRoomRoutes(app, {
     basePath: apiBasePath
   });
+
+  attachRealtime(app);
 
   return app;
 }
