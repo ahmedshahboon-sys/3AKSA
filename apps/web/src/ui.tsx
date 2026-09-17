@@ -6,8 +6,8 @@ import type { Gender } from './data';
 export function Logo({ size = 52 }: { size?: number }) {
   return (
     <span className="brand-logo-wrap" style={{ width: size, height: size }}>
-      <img className="brand-logo brand-logo-main" src={`${import.meta.env.BASE_URL}icons/logo-main-128.png`} width={size} height={size} alt="3AKSA" />
-      <img className="brand-logo brand-logo-pink" src={`${import.meta.env.BASE_URL}icons/logo-pink-128.png`} width={size} height={size} alt="" aria-hidden="true" />
+      <img className="brand-logo brand-logo-main" src={`${import.meta.env.BASE_URL}icons/logo-main-512.png`} width={size} height={size} alt="3AKSA" />
+      <img className="brand-logo brand-logo-pink" src={`${import.meta.env.BASE_URL}icons/logo-pink-512.png`} width={size} height={size} alt="" aria-hidden="true" />
     </span>
   );
 }
