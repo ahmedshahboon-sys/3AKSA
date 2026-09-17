@@ -1,0 +1,23 @@
+{
+  "project": "3AKSA",
+  "arabic_name": "عكسة",
+  "font_family": "Readex Pro",
+  "colors": {
+    "primary_lime": "#B8F000",
+    "interaction_green": "#8FCB00",
+    "secondary_blue": "#32B8FF",
+    "gold": "#F5C451",
+    "dark_background": "#111315",
+    "dark_card": "#1A1D21",
+    "dark_elevated": "#22262B",
+    "dark_text_primary": "#F5F7FA",
+    "dark_text_secondary": "#A7AFB8",
+    "light_background": "#F7F8FA",
+    "light_card": "#FFFFFF",
+    "light_text_primary": "#171A1F",
+    "light_text_secondary": "#6F7782"
+  },
+  "bottom_navigation": ["الرئيسية", "الغرف", "القريبون", "الخاص", "حسابي"],
+  "chat_v1_allowed": ["Text", "Voice Notes", "Stickers", "Free Reactions", "Premium Reactions", "Paid Gifts"],
+  "chat_v1_forbidden": ["Images", "Video messages", "Voice calls", "Video calls", "Voice rooms", "Arbitrary file sharing"]
+}
