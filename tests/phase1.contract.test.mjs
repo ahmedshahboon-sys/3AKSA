@@ -6,6 +6,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 
 const app = read('apps/web/src/App.tsx');
 const screens = read('apps/web/src/screens.tsx');
+const ui = read('apps/web/src/ui.tsx');
 const main = read('apps/web/src/main.tsx');
 const master = read('docs/design/3AKSA_VISUAL_UI_MASTER.md');
 
@@ -27,9 +28,9 @@ test('visual source is the project authority', () => {
 
 test('V1 exposes text and voice notes without calls or camera', () => {
   assert.match(screens, /تسجيل صوتي/);
-  assert.match(screens, /بدون صور أو مكالمات/);
+  assert.match(ui, /بدون صور أو مكالمات/);
   for (const forbidden of ['camera', 'video-call', 'voice-call', 'VoiceCall', 'VideoCall']) {
-    assert.equal(screens.includes(forbidden), false, `forbidden V1 control found: ${forbidden}`);
+    assert.equal(`${screens}\n${ui}`.includes(forbidden), false, `forbidden V1 control found: ${forbidden}`);
   }
 });
 
