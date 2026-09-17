@@ -12,9 +12,10 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "node scripts/phase1-quality.mjs",
+    "assets:prepare": "bash scripts/prepare-visual-assets.sh",
     "assets:check": "node scripts/check-visual-assets.mjs",
     "test": "node --test tests/*.test.mjs",
-    "verify": "pnpm lint && pnpm assets:check && pnpm typecheck && pnpm build && pnpm test",
+    "verify": "pnpm lint && pnpm assets:prepare && pnpm assets:check && pnpm typecheck && pnpm build && pnpm test",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {
