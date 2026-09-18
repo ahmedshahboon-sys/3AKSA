@@ -64,9 +64,18 @@ async function areFriends(a: string, b: string, client: PoolClient) {
   return (result.rowCount ?? 0) > 0;
 }
 
-async function existingPrivateMessage(senderId: string, clientMessageId?: string) {
+async function existingPrivateMessage(
+  senderId: string,
+  clientMessageId: string | undefined,
+  expected: {
+    type: 'text' | 'voice';
+    conversationId?: string;
+    targetId?: string;
+    text?: string;
+  }
+) {
   if (!clientMessageId) return null;
-  const result = await query<PrivateMessageRow & PrivateConversationRow>(
+  const result = await query<PrivateMessageRow & PrivateConversationRow & { conversation_created_at: Date }>(
     `SELECT ${PRIVATE_MESSAGE_SELECT},
             c.user_low_id, c.user_high_id, c.requested_by, c.status,
             c.accepted_at, c.created_at AS conversation_created_at, c.updated_at
@@ -79,6 +88,17 @@ async function existingPrivateMessage(senderId: string, clientMessageId?: string
   );
   const row = result.rows[0];
   if (!row) return null;
+
+  const peerId = row.user_low_id === senderId ? row.user_high_id : row.user_low_id;
+  if (
+    row.message_type !== expected.type ||
+    (expected.conversationId !== undefined && row.conversation_id !== expected.conversationId) ||
+    (expected.targetId !== undefined && peerId !== expected.targetId) ||
+    (expected.type === 'text' && row.text_content !== expected.text)
+  ) {
+    throw new Error('CLIENT_MESSAGE_ID_REUSED');
+  }
+
   const conversation: PrivateConversationRow = {
     id: row.conversation_id,
     user_low_id: row.user_low_id,
@@ -86,7 +106,7 @@ async function existingPrivateMessage(senderId: string, clientMessageId?: string
     requested_by: row.requested_by,
     status: row.status,
     accepted_at: row.accepted_at,
-    created_at: (row as unknown as { conversation_created_at: Date }).conversation_created_at,
+    created_at: row.conversation_created_at,
     updated_at: row.updated_at
   };
   return { conversation, message: row as PrivateMessageRow };
@@ -201,7 +221,7 @@ export async function startPrivateText(
   text: string,
   clientMessageId?: string
 ) {
-  const prior = await existingPrivateMessage(senderId, clientMessageId);
+  const prior = await existingPrivateMessage(senderId, clientMessageId, { type: 'text', targetId, text });
   if (prior) return prior;
 
   try {
@@ -242,7 +262,7 @@ export async function startPrivateText(
     });
   } catch (error) {
     if ((error as { code?: string }).code === '23505' && clientMessageId) {
-      const duplicate = await existingPrivateMessage(senderId, clientMessageId);
+      const duplicate = await existingPrivateMessage(senderId, clientMessageId, { type: 'text', targetId, text });
       if (duplicate) return duplicate;
     }
     throw error;
@@ -255,7 +275,7 @@ export async function sendActivePrivateText(
   text: string,
   clientMessageId?: string
 ) {
-  const prior = await existingPrivateMessage(senderId, clientMessageId);
+  const prior = await existingPrivateMessage(senderId, clientMessageId, { type: 'text', conversationId, text });
   if (prior) {
     const peerId = prior.conversation.user_low_id === senderId
       ? prior.conversation.user_high_id
@@ -280,7 +300,7 @@ export async function sendActivePrivateText(
     });
   } catch (error) {
     if ((error as { code?: string }).code === '23505' && clientMessageId) {
-      const duplicate = await existingPrivateMessage(senderId, clientMessageId);
+      const duplicate = await existingPrivateMessage(senderId, clientMessageId, { type: 'text', conversationId, text });
       if (duplicate) {
         const peerId = duplicate.conversation.user_low_id === senderId
           ? duplicate.conversation.user_high_id
@@ -299,7 +319,7 @@ export async function sendActivePrivateVoice(
   durationMs: number,
   clientMessageId?: string
 ) {
-  const prior = await existingPrivateMessage(senderId, clientMessageId);
+  const prior = await existingPrivateMessage(senderId, clientMessageId, { type: 'voice', conversationId });
   if (prior) {
     const peerId = prior.conversation.user_low_id === senderId
       ? prior.conversation.user_high_id
@@ -331,7 +351,7 @@ export async function sendActivePrivateVoice(
     });
   } catch (error) {
     if ((error as { code?: string }).code === '23505' && clientMessageId) {
-      const duplicate = await existingPrivateMessage(senderId, clientMessageId);
+      const duplicate = await existingPrivateMessage(senderId, clientMessageId, { type: 'voice', conversationId });
       if (duplicate) {
         const peerId = duplicate.conversation.user_low_id === senderId
           ? duplicate.conversation.user_high_id
