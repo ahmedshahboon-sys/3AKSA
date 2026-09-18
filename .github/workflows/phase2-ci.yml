@@ -86,6 +86,12 @@ jobs:
           tests/economy-store.integration.test.ts
           tests/reactions.integration.test.ts
 
+      - name: Run TV integration tests
+        run: >-
+          pnpm --filter @3aksa/api exec tsx --test
+          tests/tv.integration.test.ts
+          tests/tv-realtime.integration.test.ts
+
       - name: Run legacy backend integration tests
         run: >-
           pnpm --filter @3aksa/api exec tsx --test
