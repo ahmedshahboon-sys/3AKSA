@@ -7,6 +7,8 @@ import { registerStoreRoutes } from './modules/economy/store-routes.js';
 import { registerHealthRoutes } from './modules/health/routes.js';
 import { registerMessageRoutes } from './modules/messages/routes.js';
 import { registerNearbyRoutes } from './modules/nearby/routes.js';
+import { registerNotificationRoutes } from './modules/notifications/routes.js';
+import { startNotificationDispatcher } from './modules/notifications/service.js';
 import { registerPrivateRoutes } from './modules/private/routes.js';
 import { registerPrayerRoutes } from './modules/prayer/routes.js';
 import { startPrayerScheduler } from './modules/prayer/scheduler.js';
@@ -54,6 +56,10 @@ export async function buildApp() {
     basePath: apiBasePath
   });
 
+  await registerNotificationRoutes(app, {
+    basePath: apiBasePath
+  });
+
   await registerEconomyRoutes(app, {
     basePath: apiBasePath
   });
@@ -89,9 +95,11 @@ export async function buildApp() {
   attachRealtime(app);
 
   const stopPrayerScheduler = env.NODE_ENV === 'test' ? null : startPrayerScheduler();
-  if (stopPrayerScheduler) {
+  const stopNotificationDispatcher = env.NODE_ENV === 'test' ? null : startNotificationDispatcher();
+  if (stopPrayerScheduler || stopNotificationDispatcher) {
     app.addHook('onClose', async () => {
-      stopPrayerScheduler();
+      stopPrayerScheduler?.();
+      stopNotificationDispatcher?.();
     });
   }
 
