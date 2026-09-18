@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticateRequest } from '../auth/session.js';
+import { createNotification } from '../notifications/service.js';
 import { formatLydFromMilli } from './service.js';
 import {
   equipOwnedItem,
@@ -81,6 +82,16 @@ export async function registerStoreRoutes(app:FastifyInstance,options:{basePath:
     if(!code) return reply.code(400).send({error:'INVALID_ITEM_CODE'});
     try{
       const result=await purchaseStoreItem(user.id,code,key);
+      if(!result.replayed){
+        await createNotification({
+          userId:user.id,
+          type:'purchase',
+          title:'شراء ناجح',
+          body:`تم شراء ${result.item.name} بنجاح`,
+          data:{transactionId:result.transaction.id,itemId:result.item.id,itemCode:result.item.code},
+          soundKey:'purchase_success'
+        });
+      }
       return reply.code(result.replayed?200:201).send({
         transaction:{id:result.transaction.id,kind:result.transaction.kind,createdAt:result.transaction.created_at},
         item:result.item,
@@ -109,6 +120,21 @@ export async function registerStoreRoutes(app:FastifyInstance,options:{basePath:
     if(!recipientUsername||!giftCode) return reply.code(400).send({error:'INVALID_GIFT'});
     try{
       const result=await sendPaidGift(user.id,recipientUsername,giftCode,key);
+      if(!result.replayed){
+        await createNotification({
+          userId:result.recipient.id,
+          type:'gift_received',
+          title:'هدية جديدة',
+          body:`${user.display_name} بعثلك ${result.item.name}`,
+          data:{
+            transactionId:result.transaction.id,
+            itemId:result.item.id,
+            itemCode:result.item.code,
+            username:user.username
+          },
+          soundKey:'gift_received'
+        });
+      }
       return reply.code(result.replayed?200:201).send({
         transaction:{id:result.transaction.id,kind:result.transaction.kind,createdAt:result.transaction.created_at},
         item:result.item,

@@ -1,4 +1,4 @@
-name: Phase 4 CI
+name: Phase 6 CI
 
 on:
   workflow_dispatch:
@@ -6,19 +6,19 @@ on:
     branches: [develop]
   push:
     branches:
-      - feature/phase4-tv
+      - feature/phase6-notifications-sounds
 
 permissions:
   contents: read
 
 concurrency:
-  group: phase4-${{ github.workflow }}-${{ github.ref }}
+  group: phase6-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  tv:
+  notifications:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     services:
       postgres:
         image: postgres:16
@@ -44,44 +44,34 @@ jobs:
           --health-retries 10
     env:
       NODE_ENV: test
-      APP_VERSION: phase4-ci
+      APP_VERSION: phase6-ci
       API_HOST: 127.0.0.1
       API_PORT: 3101
       API_BASE_PATH: /3aksa/api
       SOCKET_PATH: /3aksa/socket.io
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/threeaksa_test
       REDIS_URL: redis://127.0.0.1:6379/0
-      REDIS_KEY_PREFIX: "3aksa:phase4-test:"
+      REDIS_KEY_PREFIX: "3aksa:phase6-test:"
       STORAGE_DRIVER: local
       STORAGE_LOCAL_ROOT: ./.data/test-storage
-      SESSION_SECRET: phase4-ci-session-secret-00000000000000000000000000000000
-      PASSWORD_PEPPER: phase4-ci-password-pepper-000000000000000000000000000000
+      SESSION_SECRET: phase6-ci-session-secret-00000000000000000000000000000000
+      PASSWORD_PEPPER: phase6-ci-password-pepper-000000000000000000000000000000
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Enable pnpm
         run: |
           corepack enable
           corepack prepare pnpm@12.4.2 --activate
-
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-
       - name: Typecheck project
         run: pnpm verify
-
       - name: Apply PostgreSQL migrations
         run: pnpm --filter @3aksa/api db:migrate
-
-      - name: Run TV integration tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm --filter @3aksa/api exec tsx --test tests/tv.integration.test.ts
-          pnpm --filter @3aksa/api exec tsx --test tests/tv-realtime.integration.test.ts
+      - name: Run notification integration tests
+        run: pnpm --filter @3aksa/api exec tsx --test tests/notifications.integration.test.ts

@@ -33,7 +33,14 @@ export const serverEnvSchema = z.object({
   STORAGE_LOCAL_ROOT: z.string().default('./.data/storage'),
   SESSION_SECRET: z.string().min(32),
   PASSWORD_PEPPER: z.string().min(32),
-  ADMIN_WHATSAPP_NUMBER: z.string().trim().max(32).default('0912992050')
+  ADMIN_WHATSAPP_NUMBER: z.string().trim().max(32).default('0912992050'),
+  PUSH_ENCRYPTION_KEY: z.string().min(32).optional(),
+  WEB_PUSH_VAPID_PUBLIC_KEY: z.string().trim().min(1).optional(),
+  WEB_PUSH_VAPID_PRIVATE_KEY: z.string().trim().min(1).optional(),
+  WEB_PUSH_SUBJECT: z.string().trim().default('mailto:admin@3aksa.local'),
+  FCM_PROJECT_ID: z.string().trim().min(1).optional(),
+  FCM_CLIENT_EMAIL: z.string().trim().email().optional(),
+  FCM_PRIVATE_KEY: z.string().min(1).optional()
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

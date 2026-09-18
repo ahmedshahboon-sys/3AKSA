@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { query, withTransaction } from '../../db.js';
+import { createNotification } from '../notifications/service.js';
 import { ensureUserWallet, formatLydFromMilli, type WalletAccountRow } from './service.js';
 
 type TopupRow = {
@@ -98,7 +99,7 @@ export async function cancelManualTopupRequest(userId: string, requestId: string
 
 
 export async function approveManualTopupRequest(requestId: string, reviewerUserId: string) {
-  return withTransaction(async (client) => {
+  const settled = await withTransaction(async (client) => {
     const found = await client.query<TopupRow>(
       `SELECT id,user_id,amount_milli,status,payment_reference,note,
               reviewed_by,reviewed_at,ledger_transaction_id,created_at,updated_at
@@ -110,7 +111,7 @@ export async function approveManualTopupRequest(requestId: string, reviewerUserI
     const topup = found.rows[0];
     if (!topup) throw new Error('TOPUP_REQUEST_NOT_FOUND');
     if (topup.status === 'approved') {
-      return { topup: dto(topup), replayed: true };
+      return { topup: dto(topup), userId: topup.user_id, replayed: true };
     }
     if (topup.status !== 'pending') throw new Error('TOPUP_REQUEST_NOT_PENDING');
 
@@ -171,8 +172,25 @@ export async function approveManualTopupRequest(requestId: string, reviewerUserI
                  reviewed_by,reviewed_at,ledger_transaction_id,created_at,updated_at`,
       [topup.id, reviewerUserId, transactionId]
     );
-    return { topup: dto(updated.rows[0]!), replayed: false };
+    return { topup: dto(updated.rows[0]!), userId: topup.user_id, replayed: false };
   });
+
+  if (!settled.replayed) {
+    await createNotification({
+      userId: settled.userId,
+      type: 'wallet_topup',
+      title: 'تم شحن الرصيد',
+      body: `تمت إضافة ${settled.topup.amountLyd} د.ل إلى رصيدك`,
+      data: {
+        requestId: settled.topup.id,
+        transactionId: settled.topup.ledgerTransactionId,
+        amountMilli: settled.topup.amountMilli
+      },
+      soundKey: 'wallet_topup'
+    });
+  }
+
+  return { topup: settled.topup, replayed: settled.replayed };
 }
 
 export async function rejectManualTopupRequest(requestId: string, reviewerUserId: string) {

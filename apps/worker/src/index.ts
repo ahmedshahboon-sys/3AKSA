@@ -91,6 +91,28 @@ async function purgeTable(table: 'room_messages' | 'private_messages') {
   return deletedTotal;
 }
 
+async function purgeExpiredNotifications() {
+  let deletedTotal = 0;
+  while (!stopping) {
+    const removed = await db.query<{ id: string }>(
+      `WITH doomed AS (
+         SELECT id FROM notifications
+         WHERE expires_at <= now()
+         ORDER BY expires_at
+         LIMIT $1
+       )
+       DELETE FROM notifications n
+       USING doomed d
+       WHERE n.id = d.id
+       RETURNING n.id`,
+      [CLEANUP_BATCH_SIZE]
+    );
+    deletedTotal += removed.rowCount ?? 0;
+    if ((removed.rowCount ?? 0) < CLEANUP_BATCH_SIZE) break;
+  }
+  return deletedTotal;
+}
+
 async function purgeExpiredMessages() {
   if (cleanupRunning || stopping) return;
   cleanupRunning = true;
@@ -98,11 +120,13 @@ async function purgeExpiredMessages() {
   try {
     const roomDeleted = await purgeTable('room_messages');
     const privateDeleted = await purgeTable('private_messages');
-    if (roomDeleted > 0 || privateDeleted > 0) {
-      log('info', 'expired messages purged', {
+    const notificationDeleted = await purgeExpiredNotifications();
+    if (roomDeleted > 0 || privateDeleted > 0 || notificationDeleted > 0) {
+      log('info', 'expired ephemeral data purged', {
         roomDeleted,
         privateDeleted,
-        deleted: roomDeleted + privateDeleted
+        notificationDeleted,
+        deleted: roomDeleted + privateDeleted + notificationDeleted
       });
     }
   } catch (error) {
