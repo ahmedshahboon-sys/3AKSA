@@ -3,6 +3,7 @@ import { Server as SocketIOServer, type Socket } from 'socket.io';
 import { env } from '../../config.js';
 import { query } from '../../db.js';
 import { closeRedis } from '../../redis.js';
+import { consumeRateLimit } from '../../rate-limit.js';
 import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
 import {
@@ -164,6 +165,17 @@ export function attachRealtime(app: FastifyInstance) {
     const joinedPrivateConversations = new Set<string>();
     void socket.join(userChannel(user.id));
 
+    async function allowRealtime(bucket: string, limit: number, windowSeconds: number, callback?: Ack) {
+      const rate = await consumeRateLimit(bucket, user.id, limit, windowSeconds);
+      if (rate.allowed) return true;
+      safeAck(callback, {
+        ok: false,
+        error: 'RATE_LIMITED',
+        retryAfterSeconds: rate.retryAfterSeconds
+      });
+      return false;
+    }
+
     async function leaveRoom(roomId: string) {
       if (!joinedRooms.has(roomId)) return;
       joinedRooms.delete(roomId);
@@ -223,6 +235,7 @@ export function attachRealtime(app: FastifyInstance) {
           if (text.length < 1 || text.length > 2000) {
             return safeAck(callback, { ok: false, error: 'INVALID_MESSAGE_TEXT' });
           }
+          if (!(await allowRealtime('room-text', 40, 10, callback))) return;
 
           const room = await getRoomPolicy(roomId, user.id);
           if (!room) return safeAck(callback, { ok: false, error: 'ROOM_NOT_FOUND' });
@@ -273,6 +286,7 @@ export function attachRealtime(app: FastifyInstance) {
           if (text.length < 1 || text.length > 2000) {
             return safeAck(callback, { ok: false, error: 'INVALID_MESSAGE_TEXT' });
           }
+          if (!(await allowRealtime('private-text', 30, 10, callback))) return;
           const target = await lookupMessageTarget(username);
           if (!target) return safeAck(callback, { ok: false, error: 'USER_NOT_FOUND' });
           if (target.id === user.id) return safeAck(callback, { ok: false, error: 'CANNOT_MESSAGE_SELF' });
@@ -359,6 +373,7 @@ export function attachRealtime(app: FastifyInstance) {
           if (text.length < 1 || text.length > 2000) {
             return safeAck(callback, { ok: false, error: 'INVALID_MESSAGE_TEXT' });
           }
+          if (!(await allowRealtime('private-text', 30, 10, callback))) return;
 
           const result = await sendActivePrivateText(conversationId, user.id, text);
           const message = privateMessageDto(result.message);
