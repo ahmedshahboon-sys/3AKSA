@@ -1,4 +1,4 @@
-const VERSION = '3aksa-shell-v2';
+const VERSION = '3aksa-shell-v3';
 const scopeUrl = new URL(self.registration.scope);
 const scopePath = scopeUrl.pathname.endsWith('/') ? scopeUrl.pathname : `${scopeUrl.pathname}/`;
 const shellUrl = new URL(scopePath, self.location.origin).toString();
@@ -71,5 +71,52 @@ self.addEventListener('fetch', (event) => {
       await cache.put(request, response.clone());
     }
     return response;
+  })());
+});
+
+
+function notificationTarget(payload) {
+  const data = payload?.data && typeof payload.data === 'object' ? payload.data : {};
+  if (typeof data.conversationId === 'string') return `private/${encodeURIComponent(data.conversationId)}`;
+  if (payload?.type === 'message_request') return 'private';
+  if (payload?.type === 'friend_request' || payload?.type === 'friend_accepted') return 'notifications';
+  if (['wallet_topup','wallet_transfer','purchase','gift_received'].includes(payload?.type)) return 'wallet';
+  if (payload?.type === 'app_update') return 'account';
+  return 'notifications';
+}
+
+self.addEventListener('push', (event) => {
+  event.waitUntil((async () => {
+    let payload = {};
+    try { payload = event.data ? event.data.json() : {}; } catch { payload = {}; }
+    const title = typeof payload.title === 'string' ? payload.title : 'عكسة';
+    const body = typeof payload.body === 'string' ? payload.body : 'عندك إشعار جديد';
+    const target = notificationTarget(payload);
+    const targetUrl = new URL(target, self.registration.scope).toString();
+    await self.registration.showNotification(title, {
+      body,
+      icon: new URL('icons/logo-main-192.png', self.registration.scope).toString(),
+      badge: new URL('icons/logo-main-192.png', self.registration.scope).toString(),
+      tag: typeof payload.id === 'string' ? payload.id : undefined,
+      renotify: false,
+      data: { url: targetUrl, notificationId: payload.id || null, type: payload.type || null },
+      dir: 'rtl',
+      lang: 'ar'
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || self.registration.scope;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      if ('focus' in client) {
+        if ('navigate' in client) await client.navigate(targetUrl);
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(targetUrl);
   })());
 });
