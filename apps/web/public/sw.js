@@ -120,3 +120,8 @@ self.addEventListener('notificationclick', (event) => {
     return self.clients.openWindow(targetUrl);
   })());
 });
+
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
