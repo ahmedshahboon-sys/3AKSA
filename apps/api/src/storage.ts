@@ -10,6 +10,9 @@ export const MIN_VOICE_DURATION_MS = 250;
 type VoiceFormat = { mime: 'audio/webm' | 'audio/ogg' | 'audio/mp4'; extension: 'webm' | 'ogg' | 'm4a' };
 
 function storageRoot() {
+  if (env.NODE_ENV === 'production' && !path.isAbsolute(env.STORAGE_LOCAL_ROOT)) {
+    throw new Error('STORAGE_LOCAL_ROOT_ABSOLUTE_REQUIRED');
+  }
   return path.resolve(process.cwd(), env.STORAGE_LOCAL_ROOT);
 }
 
