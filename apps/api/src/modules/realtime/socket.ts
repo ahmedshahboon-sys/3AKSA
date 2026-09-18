@@ -14,6 +14,12 @@ import {
   softDeleteRoomMessage
 } from '../messages/service.js';
 import {
+  deletePrivateLike,
+  deleteRoomLike,
+  putPrivateLike,
+  putRoomLike
+} from '../reactions/service.js';
+import {
   areBlocked,
   privateMessageDto,
   sendActivePrivateText,
@@ -327,6 +333,45 @@ export function attachRealtime(app: FastifyInstance) {
     );
 
     socket.on(
+      'room:reaction:like:set',
+      async (
+        payload: { roomId?: string; messageId?: string; active?: boolean } | undefined,
+        callback?: Ack
+      ) => {
+        try {
+          const roomId = payload?.roomId?.trim() ?? '';
+          const messageId = payload?.messageId?.trim() ?? '';
+          if (!UUID_RE.test(roomId) || !UUID_RE.test(messageId)) {
+            return safeAck(callback, { ok: false, error: 'MESSAGE_NOT_FOUND' });
+          }
+          if (!joinedRooms.has(roomId)) {
+            return safeAck(callback, { ok: false, error: 'ROOM_NOT_JOINED' });
+          }
+          if (!(await allowRealtime('room-like', 60, 60, callback))) return;
+
+          const summary = payload?.active === false
+            ? await deleteRoomLike(user, roomId, messageId)
+            : await putRoomLike(user, roomId, messageId);
+
+          io.to(roomChannel(roomId)).emit('room:reaction', {
+            roomId,
+            messageId,
+            reaction: 'like',
+            count: summary.count
+          });
+          safeAck(callback, { ok: true, like: summary });
+        } catch (error) {
+          const code = error instanceof Error ? error.message : '';
+          if (code === 'MESSAGE_NOT_FOUND') {
+            return safeAck(callback, { ok: false, error: code });
+          }
+          socket.data.lastRealtimeError = code || 'unknown';
+          safeAck(callback, { ok: false, error: 'REACTION_UPDATE_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
       'room:message:delete',
       async (payload: { roomId?: string; messageId?: string } | undefined, callback?: Ack) => {
         try {
@@ -439,6 +484,45 @@ export function attachRealtime(app: FastifyInstance) {
           safeAck(callback, { ok: true, conversationId: conversation.id });
         } catch {
           safeAck(callback, { ok: false, error: 'PRIVATE_JOIN_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
+      'private:reaction:like:set',
+      async (
+        payload: { conversationId?: string; messageId?: string; active?: boolean } | undefined,
+        callback?: Ack
+      ) => {
+        try {
+          const conversationId = payload?.conversationId?.trim() ?? '';
+          const messageId = payload?.messageId?.trim() ?? '';
+          if (!UUID_RE.test(conversationId) || !UUID_RE.test(messageId)) {
+            return safeAck(callback, { ok: false, error: 'MESSAGE_NOT_FOUND' });
+          }
+          if (!joinedPrivateConversations.has(conversationId)) {
+            return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_JOINED' });
+          }
+          if (!(await allowRealtime('private-like', 60, 60, callback))) return;
+
+          const summary = payload?.active === false
+            ? await deletePrivateLike(user.id, conversationId, messageId)
+            : await putPrivateLike(user.id, conversationId, messageId);
+
+          io.to(privateChannel(conversationId)).emit('private:reaction', {
+            conversationId,
+            messageId,
+            reaction: 'like',
+            count: summary.count
+          });
+          safeAck(callback, { ok: true, like: summary });
+        } catch (error) {
+          const code = error instanceof Error ? error.message : '';
+          if (code === 'MESSAGE_NOT_FOUND') {
+            return safeAck(callback, { ok: false, error: code });
+          }
+          socket.data.lastRealtimeError = code || 'unknown';
+          safeAck(callback, { ok: false, error: 'REACTION_UPDATE_FAILED' });
         }
       }
     );
