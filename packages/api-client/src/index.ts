@@ -77,10 +77,8 @@ export type ChatMessage = {
   senderId?: string;
   createdAt: string;
   expiresAt: string;
-  durationMs?: number | null;
-  mediaMime?: string | null;
-  likeCount?: number;
-  viewerLiked?: boolean;
+  voice?: { mime: string | null; bytes: number | null; durationMs: number | null } | null;
+  reactions?: { like: { count: number; reacted: boolean } };
 };
 
 export type WalletSummary = {
@@ -326,10 +324,10 @@ export class ApiClient {
     return this.request<{ request: unknown }>('/friends/requests', { method: 'POST', body: JSON.stringify({ username }) });
   }
 
-  updateNearbyLocation(latitude: number, longitude: number, accuracy?: number) {
+  updateNearbyLocation(latitude: number, longitude: number, accuracyM?: number) {
     return this.request<{ ok: boolean; updatedAt: string }>('/nearby/location', {
       method: 'PUT',
-      body: JSON.stringify({ latitude, longitude, accuracy })
+      body: JSON.stringify({ latitude, longitude, accuracyM })
     });
   }
 
