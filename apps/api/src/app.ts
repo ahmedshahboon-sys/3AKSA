@@ -8,6 +8,8 @@ import { registerHealthRoutes } from './modules/health/routes.js';
 import { registerMessageRoutes } from './modules/messages/routes.js';
 import { registerNearbyRoutes } from './modules/nearby/routes.js';
 import { registerPrivateRoutes } from './modules/private/routes.js';
+import { registerPrayerRoutes } from './modules/prayer/routes.js';
+import { startPrayerScheduler } from './modules/prayer/scheduler.js';
 import { registerReactionRoutes } from './modules/reactions/routes.js';
 import { attachRealtime } from './modules/realtime/socket.js';
 import { registerRoomRoutes } from './modules/rooms/routes.js';
@@ -76,11 +78,22 @@ export async function buildApp() {
     basePath: apiBasePath
   });
 
+  await registerPrayerRoutes(app, {
+    basePath: apiBasePath
+  });
+
   await registerTvRoutes(app, {
     basePath: apiBasePath
   });
 
   attachRealtime(app);
+
+  const stopPrayerScheduler = env.NODE_ENV === 'test' ? null : startPrayerScheduler();
+  if (stopPrayerScheduler) {
+    app.addHook('onClose', async () => {
+      stopPrayerScheduler();
+    });
+  }
 
   return app;
 }
