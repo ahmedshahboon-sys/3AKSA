@@ -15,7 +15,8 @@ export type ParsedM3uEntry = {
 function privateIpv4(address: string) {
   const parts = address.split('.').map(Number);
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
-  const [a, b] = parts;
+  const a = parts[0]!;
+  const b = parts[1]!;
   return (
     a === 0 ||
     a === 10 ||
