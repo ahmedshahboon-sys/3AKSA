@@ -359,7 +359,21 @@ export class ApiClient {
   }
 
   privateRequests() {
-    return this.request<{ requests: unknown[] }>('/private/requests');
+    return this.request<{ requests: PrivateMessageRequest[] }>('/private/requests');
+  }
+
+  acceptPrivateRequest(conversationId: string) {
+    return this.request<{ ok: true }>(
+      `/private/requests/${encodeURIComponent(conversationId)}/accept`,
+      { method: 'POST' }
+    );
+  }
+
+  rejectPrivateRequest(conversationId: string) {
+    return this.request<{ ok: true }>(
+      `/private/requests/${encodeURIComponent(conversationId)}/reject`,
+      { method: 'POST' }
+    );
   }
 
   startPrivateMessage(username: string, text: string) {
