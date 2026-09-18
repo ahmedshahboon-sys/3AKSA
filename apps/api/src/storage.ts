@@ -72,7 +72,11 @@ export async function deleteStoredVoice(storageKey: string | null | undefined) {
   }
 }
 
-export function openStoredVoice(storageKey: string) {
+export function openStoredFile(storageKey: string) {
   if (env.STORAGE_DRIVER !== 'local') throw new Error('STORAGE_DRIVER_UNSUPPORTED');
   return createReadStream(localPath(storageKey));
+}
+
+export function openStoredVoice(storageKey: string) {
+  return openStoredFile(storageKey);
 }
