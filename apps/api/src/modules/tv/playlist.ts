@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { isIP } from 'node:net';
 
 export const MAX_PLAYLIST_BYTES = 2 * 1024 * 1024;
@@ -10,6 +12,11 @@ export type ParsedM3uEntry = {
   groupName: string | null;
   logoUrl: string | null;
   streamUrl: string;
+};
+
+type PublicTarget = {
+  address: string;
+  family: 4 | 6;
 };
 
 function privateIpv4(address: string) {
@@ -29,28 +36,96 @@ function privateIpv4(address: string) {
   );
 }
 
+function normalizeHostname(hostname: string) {
+  let value = hostname.toLowerCase().replace(/.$/, '');
+  if (value.startsWith('[') && value.endsWith(']')) value = value.slice(1, -1);
+  const zoneIndex = value.indexOf('%');
+  if (zoneIndex >= 0) value = value.slice(0, zoneIndex);
+  return value;
+}
+
+function ipv6Groups(address: string): number[] | null {
+  let normalized = normalizeHostname(address);
+  const dotted = normalized.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  if (dotted) {
+    const ipv4 = dotted[2]!;
+    if (privateIpv4(ipv4) && isIP(ipv4) !== 4) return null;
+    const bytes = ipv4.split('.').map(Number);
+    if (bytes.length !== 4 || bytes.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+    const hi = ((bytes[0]! << 8) | bytes[1]!).toString(16);
+    const lo = ((bytes[2]! << 8) | bytes[3]!).toString(16);
+    normalized = `${dotted[1]}${hi}:${lo}`;
+  }
+
+  const pieces = normalized.split('::');
+  if (pieces.length > 2) return null;
+  const left = pieces[0] ? pieces[0]!.split(':').filter(Boolean) : [];
+  const right = pieces.length === 2 && pieces[1] ? pieces[1]!.split(':').filter(Boolean) : [];
+  const parse = (token: string) => {
+    if (!/^[0-9a-f]{1,4}$/i.test(token)) return null;
+    return Number.parseInt(token, 16);
+  };
+
+  const leftValues = left.map(parse);
+  const rightValues = right.map(parse);
+  if (leftValues.some((value) => value === null) || rightValues.some((value) => value === null)) return null;
+
+  if (pieces.length === 1) {
+    if (leftValues.length !== 8) return null;
+    return leftValues as number[];
+  }
+
+  const missing = 8 - leftValues.length - rightValues.length;
+  if (missing < 1) return null;
+  return [
+    ...(leftValues as number[]),
+    ...Array.from({ length: missing }, () => 0),
+    ...(rightValues as number[])
+  ];
+}
+
+function embeddedIpv4(groups: number[], startGroup: number) {
+  const a = groups[startGroup]!;
+  const b = groups[startGroup + 1]!;
+  return `${a >> 8}.${a & 255}.${b >> 8}.${b & 255}`;
+}
+
 function privateIpv6(address: string) {
-  const normalized = address.toLowerCase().split('%')[0] ?? '';
-  return (
-    normalized === '::' ||
-    normalized === '::1' ||
-    normalized.startsWith('fc') ||
-    normalized.startsWith('fd') ||
-    normalized.startsWith('fe8') ||
-    normalized.startsWith('fe9') ||
-    normalized.startsWith('fea') ||
-    normalized.startsWith('feb') ||
-    normalized.startsWith('ff') ||
-    normalized.startsWith('::ffff:127.') ||
-    normalized.startsWith('::ffff:10.') ||
-    normalized.startsWith('::ffff:192.168.')
-  );
+  const groups = ipv6Groups(address);
+  if (!groups || groups.length !== 8) return true;
+
+  const allZero = groups.every((group) => group === 0);
+  const loopback = groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1;
+  if (allZero || loopback) return true;
+
+  const first = groups[0]!;
+  if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7
+  if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10
+  if ((first & 0xff00) === 0xff00) return true; // multicast
+
+  const firstFiveZero = groups.slice(0, 5).every((group) => group === 0);
+  if (firstFiveZero && groups[5] === 0xffff) {
+    return privateIpv4(embeddedIpv4(groups, 6));
+  }
+
+  const firstSixZero = groups.slice(0, 6).every((group) => group === 0);
+  if (firstSixZero) {
+    return privateIpv4(embeddedIpv4(groups, 6));
+  }
+
+  if (groups[0] === 0x2002) {
+    return privateIpv4(embeddedIpv4(groups, 1));
+  }
+
+  if (groups[0] === 0x2001 && groups[1] === 0x0db8) return true; // documentation range
+  return false;
 }
 
 export function isPrivateOrLocalAddress(address: string) {
-  const family = isIP(address);
-  if (family === 4) return privateIpv4(address);
-  if (family === 6) return privateIpv6(address);
+  const normalized = normalizeHostname(address);
+  const family = isIP(normalized);
+  if (family === 4) return privateIpv4(normalized);
+  if (family === 6) return privateIpv6(normalized);
   return true;
 }
 
@@ -70,7 +145,7 @@ export function validatePublicHttpUrl(raw: string, kind: 'stream' | 'logo' | 'pl
   }
   if (url.username || url.password) throw new Error(`INVALID_${kind.toUpperCase()}_URL`);
 
-  const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
+  const hostname = normalizeHostname(url.hostname);
   if (
     !hostname ||
     hostname === 'localhost' ||
@@ -88,21 +163,33 @@ export function validatePublicHttpUrl(raw: string, kind: 'stream' | 'logo' | 'pl
   return url;
 }
 
-export async function assertPublicDnsTarget(url: URL) {
-  if (isIP(url.hostname)) {
-    if (isPrivateOrLocalAddress(url.hostname)) throw new Error('PLAYLIST_URL_NOT_PUBLIC');
-    return;
+export async function resolvePublicDnsTargets(url: URL): Promise<PublicTarget[]> {
+  const hostname = normalizeHostname(url.hostname);
+  const literalFamily = isIP(hostname);
+  if (literalFamily) {
+    if (isPrivateOrLocalAddress(hostname)) throw new Error('PLAYLIST_URL_NOT_PUBLIC');
+    return [{ address: hostname, family: literalFamily as 4 | 6 }];
   }
 
   let addresses: Array<{ address: string; family: number }>;
   try {
-    addresses = await lookup(url.hostname, { all: true, verbatim: true });
+    addresses = await lookup(hostname, { all: true, verbatim: true });
   } catch {
     throw new Error('PLAYLIST_DNS_FAILED');
   }
-  if (addresses.length === 0 || addresses.some((item) => isPrivateOrLocalAddress(item.address))) {
+
+  const targets = addresses
+    .filter((item): item is { address: string; family: 4 | 6 } => item.family === 4 || item.family === 6)
+    .map((item) => ({ address: normalizeHostname(item.address), family: item.family }));
+
+  if (
+    targets.length === 0 ||
+    targets.some((item) => isPrivateOrLocalAddress(item.address))
+  ) {
     throw new Error('PLAYLIST_URL_NOT_PUBLIC');
   }
+
+  return targets;
 }
 
 function parseExtInf(line: string) {
@@ -180,67 +267,138 @@ export function parseM3uPlaylist(content: string): ParsedM3uEntry[] {
   return entries;
 }
 
-async function readTextLimited(response: Response) {
-  const declared = Number(response.headers.get('content-length') ?? 0);
-  if (Number.isFinite(declared) && declared > MAX_PLAYLIST_BYTES) throw new Error('PLAYLIST_TOO_LARGE');
-  if (!response.body) throw new Error('PLAYLIST_FETCH_FAILED');
+function requestPinned(url: URL, target: PublicTarget) {
+  return new Promise<{
+    statusCode: number;
+    location: string | null;
+    content: string | null;
+  }>((resolve, reject) => {
+    const hostname = normalizeHostname(url.hostname);
+    const common = {
+      hostname: target.address,
+      family: target.family,
+      port: url.port ? Number(url.port) : undefined,
+      method: 'GET',
+      path: `${url.pathname}${url.search}`,
+      headers: {
+        host: url.host,
+        accept: 'application/vnd.apple.mpegurl, application/x-mpegURL, audio/mpegurl, text/plain;q=0.9',
+        'accept-encoding': 'identity',
+        'user-agent': '3AKSA-TV-Importer/1.0'
+      }
+    };
 
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
+    const onResponse = (response: import('node:http').IncomingMessage) => {
+      const statusCode = response.statusCode ?? 0;
+      const locationHeader = response.headers.location;
+      const location = Array.isArray(locationHeader) ? locationHeader[0] ?? null : locationHeader ?? null;
 
-  while (true) {
-    const part = await reader.read();
-    if (part.done) break;
-    total += part.value.byteLength;
-    if (total > MAX_PLAYLIST_BYTES) {
-      await reader.cancel();
-      throw new Error('PLAYLIST_TOO_LARGE');
+      if (statusCode >= 300 && statusCode < 400) {
+        response.resume();
+        resolve({ statusCode, location, content: null });
+        return;
+      }
+
+      if (statusCode < 200 || statusCode >= 300) {
+        response.resume();
+        resolve({ statusCode, location: null, content: null });
+        return;
+      }
+
+      const declared = Number(response.headers['content-length'] ?? 0);
+      if (Number.isFinite(declared) && declared > MAX_PLAYLIST_BYTES) {
+        response.destroy();
+        reject(new Error('PLAYLIST_TOO_LARGE'));
+        return;
+      }
+
+      const chunks: Buffer[] = [];
+      let total = 0;
+      let settled = false;
+      const fail = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        reject(error);
+      };
+
+      response.on('data', (chunk: Buffer | string) => {
+        if (settled) return;
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        total += buffer.length;
+        if (total > MAX_PLAYLIST_BYTES) {
+          response.destroy();
+          fail(new Error('PLAYLIST_TOO_LARGE'));
+          return;
+        }
+        chunks.push(buffer);
+      });
+      response.on('end', () => {
+        if (settled) return;
+        settled = true;
+        resolve({
+          statusCode,
+          location: null,
+          content: Buffer.concat(chunks).toString('utf8')
+        });
+      });
+      response.on('error', (error) => fail(error instanceof Error ? error : new Error('PLAYLIST_FETCH_FAILED')));
+    };
+
+    const request = url.protocol === 'https:'
+      ? httpsRequest({
+          ...common,
+          servername: isIP(hostname) ? '' : hostname,
+          rejectUnauthorized: true
+        }, onResponse)
+      : httpRequest(common, onResponse);
+
+    request.setTimeout(5000, () => request.destroy(new Error('PLAYLIST_FETCH_TIMEOUT')));
+    request.on('error', (error) => reject(error instanceof Error ? error : new Error('PLAYLIST_FETCH_FAILED')));
+    request.end();
+  });
+}
+
+async function requestFromPublicTarget(url: URL, targets: PublicTarget[]) {
+  let lastError: unknown = null;
+  for (const target of targets) {
+    try {
+      return await requestPinned(url, target);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'PLAYLIST_TOO_LARGE') throw error;
+      lastError = error;
     }
-    chunks.push(part.value);
   }
-
-  const merged = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder('utf-8', { fatal: false }).decode(merged);
+  throw lastError instanceof Error ? lastError : new Error('PLAYLIST_FETCH_FAILED');
 }
 
 export async function fetchM3uPlaylist(sourceUrl: string) {
   let current = validatePublicHttpUrl(sourceUrl, 'playlist');
 
   for (let redirect = 0; redirect <= 3; redirect += 1) {
-    await assertPublicDnsTarget(current);
+    const targets = await resolvePublicDnsTargets(current);
 
-    let response: Response;
+    let response: Awaited<ReturnType<typeof requestFromPublicTarget>>;
     try {
-      response = await fetch(current, {
-        redirect: 'manual',
-        headers: {
-          accept: 'application/vnd.apple.mpegurl, application/x-mpegURL, audio/mpegurl, text/plain;q=0.9'
-        },
-        signal: AbortSignal.timeout(5000)
-      });
-    } catch {
+      response = await requestFromPublicTarget(current, targets);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'PLAYLIST_TOO_LARGE') throw error;
       throw new Error('PLAYLIST_FETCH_FAILED');
     }
 
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (!location || redirect === 3) throw new Error('PLAYLIST_REDIRECT_INVALID');
-      current = validatePublicHttpUrl(new URL(location, current).toString(), 'playlist');
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      if (!response.location || redirect === 3) throw new Error('PLAYLIST_REDIRECT_INVALID');
+      current = validatePublicHttpUrl(new URL(response.location, current).toString(), 'playlist');
       continue;
     }
 
-    if (!response.ok) throw new Error('PLAYLIST_FETCH_FAILED');
-    const content = await readTextLimited(response);
+    if (response.statusCode < 200 || response.statusCode >= 300 || response.content === null) {
+      throw new Error('PLAYLIST_FETCH_FAILED');
+    }
+
     return {
-      content,
+      content: response.content,
       finalUrl: current,
-      sourceHost: current.hostname,
+      sourceHost: normalizeHostname(current.hostname),
       sourceFingerprint: createHash('sha256').update(current.toString()).digest('hex')
     };
   }
