@@ -132,34 +132,40 @@ test('wallet transfer is balanced, non-negative and idempotent', async () => {
     await seedBalance(senderSession.user.id, 5_000);
 
     const key = randomUUID();
-    const transfer = await app.inject({
-      method: 'POST',
-      url: '/3aksa/api/wallet/transfers',
-      headers: { ...auth(senderSession.accessToken), 'idempotency-key': key },
-      payload: { username: recipient.username, amountMilli: 1_500 }
-    });
-    assert.equal(transfer.statusCode, 201, transfer.body);
-    const first = transfer.json<{
+    const concurrentTransfers = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: '/3aksa/api/wallet/transfers',
+        headers: { ...auth(senderSession.accessToken), 'idempotency-key': key },
+        payload: { username: recipient.username, amountMilli: 1_500 }
+      }),
+      app.inject({
+        method: 'POST',
+        url: '/3aksa/api/wallet/transfers',
+        headers: { ...auth(senderSession.accessToken), 'idempotency-key': key },
+        payload: { username: recipient.username, amountMilli: 1_500 }
+      })
+    ]);
+    assert.deepEqual(
+      concurrentTransfers.map((response) => response.statusCode).sort((a, b) => a - b),
+      [200, 201],
+      concurrentTransfers.map((response) => response.body).join('\n')
+    );
+
+    const transferBodies = concurrentTransfers.map((response) => response.json<{
       transaction: { id: string };
       balanceMilli: number;
       balanceLyd: string;
       replayed: boolean;
-    }>();
+    }>());
+    const first = transferBodies.find((body) => body.replayed === false);
+    const replayBody = transferBodies.find((body) => body.replayed === true);
+    assert.ok(first);
+    assert.ok(replayBody);
     assert.equal(first.balanceMilli, 3_500);
     assert.equal(first.balanceLyd, '3.500');
-    assert.equal(first.replayed, false);
-
-    const replay = await app.inject({
-      method: 'POST',
-      url: '/3aksa/api/wallet/transfers',
-      headers: { ...auth(senderSession.accessToken), 'idempotency-key': key },
-      payload: { username: recipient.username, amountMilli: 1_500 }
-    });
-    assert.equal(replay.statusCode, 200, replay.body);
-    const replayBody = replay.json<{ transaction: { id: string }; balanceMilli: number; replayed: boolean }>();
     assert.equal(replayBody.transaction.id, first.transaction.id);
     assert.equal(replayBody.balanceMilli, 3_500);
-    assert.equal(replayBody.replayed, true);
 
     const keyReuse = await app.inject({
       method: 'POST',
