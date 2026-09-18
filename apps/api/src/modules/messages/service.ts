@@ -71,7 +71,16 @@ async function existingRoomMessage(
 ) {
   if (!clientMessageId) return null;
   const result = await query<RoomMessageRow>(
-    `SELECT ${MESSAGE_SELECT}
+    `SELECT ${MESSAGE_SELECT},
+            (SELECT count(*)::int
+             FROM message_reactions mr
+             WHERE mr.room_message_id = m.id AND mr.reaction_code = 'like') AS like_count,
+            EXISTS (
+              SELECT 1 FROM message_reactions mr
+              WHERE mr.room_message_id = m.id
+                AND mr.reaction_code = 'like'
+                AND mr.reactor_user_id = $1
+            ) AS viewer_liked
      FROM room_messages m
      JOIN users u ON u.id = m.sender_id
      WHERE m.sender_id = $1 AND m.client_message_id = $2
