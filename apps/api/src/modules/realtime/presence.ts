@@ -104,3 +104,26 @@ export async function roomPresenceSnapshot(roomId: string) {
   const userIds = [...new Set(members.map((member) => member.split(':', 1)[0]).filter(Boolean))] as string[];
   return { onlineCount: userIds.length, userIds };
 }
+
+
+export async function roomPresenceCounts(roomIds: string[]) {
+  const uniqueIds=[...new Set(roomIds)].filter(Boolean).slice(0,100);
+  if(uniqueIds.length===0)return new Map<string,number>();
+
+  const redis=await getRedis();
+  const now=Date.now();
+  const multi=redis.multi();
+  for(const roomId of uniqueIds){
+    const key=presenceKey(roomId);
+    multi.zRemRangeByScore(key,0,now);
+    multi.zRange(key,0,-1);
+  }
+  const results=await multi.exec() as unknown[];
+  const counts=new Map<string,number>();
+  for(let index=0;index<uniqueIds.length;index+=1){
+    const members=Array.isArray(results[index*2+1]) ? results[index*2+1] as string[] : [];
+    const users=new Set(members.map((member)=>member.split(':',1)[0]).filter(Boolean));
+    counts.set(uniqueIds[index]!,users.size);
+  }
+  return counts;
+}
