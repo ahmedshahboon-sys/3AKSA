@@ -202,6 +202,22 @@ export async function transferWalletBalance(
       const senderLocked = locked.rows.find((row) => row.id === senderAccount.id);
       if (!senderLocked) throw new Error('WALLET_NOT_FOUND');
 
+      const racedPrior = await client.query<WalletTransactionRow>(
+        `SELECT id, kind, initiator_user_id, idempotency_key, metadata, created_at
+         FROM wallet_transactions
+         WHERE initiator_user_id = $1 AND idempotency_key = $2
+         LIMIT 1`,
+        [senderUserId, idempotencyKey]
+      );
+      if (racedPrior.rows[0]) {
+        assertTransferReplay(racedPrior.rows[0], recipient.id, amountMilli);
+        return {
+          transaction: racedPrior.rows[0],
+          senderBalanceMilli: asSafeInteger(senderLocked.balance_milli),
+          replayed: true
+        };
+      }
+
       const senderBalance = asSafeInteger(senderLocked.balance_milli);
       if (senderBalance < amountMilli) throw new Error('INSUFFICIENT_BALANCE');
 
