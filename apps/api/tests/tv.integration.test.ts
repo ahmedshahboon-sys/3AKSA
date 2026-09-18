@@ -97,6 +97,31 @@ test('TV catalog management and room playback state enforce licensing and permis
     assert.equal(localStream.statusCode,400,localStream.body);
     assert.equal(localStream.json<{error:string}>().error,'INVALID_STREAM_URL');
 
+    const localIpv6=await app.inject({
+      method:'POST',
+      url:'/3aksa/api/tv/admin/channels',
+      headers:auth(adminSession.accessToken),
+      payload:{
+        name:'قناة IPv6 محلية ممنوعة',
+        streamUrl:'http://[::1]/private.m3u8',
+        rightsAttested:true
+      }
+    });
+    assert.equal(localIpv6.statusCode,400,localIpv6.body);
+    assert.equal(localIpv6.json<{error:string}>().error,'INVALID_STREAM_URL');
+
+    const localRemoteImport=await app.inject({
+      method:'POST',
+      url:'/3aksa/api/tv/admin/imports/m3u',
+      headers:auth(adminSession.accessToken),
+      payload:{
+        sourceUrl:'http://127.0.0.1:9999/channels.m3u',
+        rightsAttested:true
+      }
+    });
+    assert.equal(localRemoteImport.statusCode,400,localRemoteImport.body);
+    assert.equal(localRemoteImport.json<{error:string}>().error,'INVALID_PLAYLIST_URL');
+
     const direct=await app.inject({
       method:'POST',
       url:'/3aksa/api/tv/admin/channels',
@@ -207,8 +232,10 @@ test('TV catalog management and room playback state enforce licensing and permis
       headers:auth(viewerSession.accessToken)
     });
     assert.equal(manual.statusCode,200,manual.body);
-    const manualChannels=manual.json<{channels:Array<{id:string;name:string}>}>().channels;
+    const manualChannels=manual.json<{channels:Array<Record<string,unknown>&{id:string;name:string}>}>().channels;
     assert.equal(manualChannels[0]?.id,kids!.id);
+    assert.equal('rightsNote' in manualChannels[0]!,false);
+    assert.equal('rightsConfirmed' in manualChannels[0]!,false);
     assert.equal(manualChannels[1]?.id,sport!.id);
     assert.equal(manualChannels[2]?.id,news.id);
 
