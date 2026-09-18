@@ -408,6 +408,9 @@ export async function updateTvChannel(
       const streamUrl = patch.streamUrl !== undefined
         ? validatePublicHttpUrl(patch.streamUrl, 'stream').toString()
         : current.stream_url;
+      if (streamUrl !== current.stream_url && patch.rightsAttested !== true) {
+        throw new Error('TV_RIGHTS_ATTESTATION_REQUIRED');
+      }
       const logoUrl = patch.logoUrl !== undefined
         ? patch.logoUrl
           ? validatePublicHttpUrl(patch.logoUrl, 'logo').toString()
