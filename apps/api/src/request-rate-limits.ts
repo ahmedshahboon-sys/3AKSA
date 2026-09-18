@@ -35,6 +35,14 @@ export function registerRequestRateLimits(app: FastifyInstance) {
       bucket = 'wallet-topup-request';
       limit = 5;
       windowSeconds = 24 * 60 * 60;
+    } else if (request.method === 'POST' && route.endsWith('/store/purchases')) {
+      bucket = 'store-purchase';
+      limit = 20;
+      windowSeconds = 60;
+    } else if (request.method === 'POST' && route.endsWith('/gifts/send')) {
+      bucket = 'paid-gift';
+      limit = 20;
+      windowSeconds = 60;
     }
 
     if (!bucket) return;
