@@ -1,0 +1,19 @@
+{
+  "name": "@3aksa/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "echo 'covered by root quality gate'",
+    "test": "echo 'covered by integration tests'",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
