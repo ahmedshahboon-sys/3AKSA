@@ -28,6 +28,7 @@ export type PrivateMessageRow = {
   media_bytes: number | null;
   media_duration_ms: number | null;
   client_message_id: string | null;
+  _idempotentReplay?: boolean;
   created_at: Date;
   expires_at: Date;
 };
@@ -109,7 +110,7 @@ async function existingPrivateMessage(
     created_at: row.conversation_created_at,
     updated_at: row.updated_at
   };
-  return { conversation, message: row as PrivateMessageRow };
+  return { conversation, message: { ...(row as PrivateMessageRow), _idempotentReplay: true } };
 }
 
 async function insertTextMessage(
@@ -139,7 +140,7 @@ async function insertTextMessage(
     [randomUUID(), conversationId, senderId, text, clientMessageId ?? null]
   );
   await client.query('UPDATE private_conversations SET updated_at = now() WHERE id = $1', [conversationId]);
-  return result.rows[0]!;
+  return { ...result.rows[0]!, _idempotentReplay: false };
 }
 
 async function insertVoiceMessage(
@@ -183,7 +184,7 @@ async function insertVoiceMessage(
       ]
     );
     await client.query('UPDATE private_conversations SET updated_at = now() WHERE id = $1', [conversationId]);
-    return result.rows[0]!;
+    return { ...result.rows[0]!, _idempotentReplay: false };
   } catch (error) {
     await deleteStoredVoice(stored.storageKey);
     throw error;
