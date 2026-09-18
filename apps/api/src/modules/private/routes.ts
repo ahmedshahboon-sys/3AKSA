@@ -1,9 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { query, withTransaction } from '../../db.js';
+import { openStoredVoice } from '../../storage.js';
 import { authenticateRequest } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
 import {
   areBlocked,
+  getLivePrivateVoice,
   listPrivateMessages,
   privateMessageDto,
   startPrivateText,
@@ -261,4 +263,38 @@ export async function registerPrivateRoutes(app: FastifyInstance, options: { bas
       return reply.send({ messages: messages.map(privateMessageDto) });
     }
   );
+
+  app.get<{ Params: { conversationId: string; messageId: string } }>(
+    `${prefix}/conversations/:conversationId/messages/:messageId/voice`,
+    async (request, reply) => {
+      const user = await requireUser(request, reply);
+      if (!user) return;
+
+      const conversation = await query<PrivateConversationRow>(
+        `SELECT * FROM private_conversations
+         WHERE id = $1 AND status = 'active'
+           AND (user_low_id = $2 OR user_high_id = $2)
+         LIMIT 1`,
+        [request.params.conversationId, user.id]
+      );
+      const found = conversation.rows[0];
+      if (!found) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+      const peerId = found.user_low_id === user.id ? found.user_high_id : found.user_low_id;
+      if (await areBlocked(user.id, peerId)) {
+        return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+      }
+
+      const message = await getLivePrivateVoice(found.id, request.params.messageId, user.id);
+      if (!message?.storage_key || !message.media_mime) {
+        return reply.code(404).send({ error: 'VOICE_NOT_FOUND' });
+      }
+
+      reply.header('Cache-Control', 'private, no-store');
+      reply.header('X-Content-Type-Options', 'nosniff');
+      if (message.media_bytes) reply.header('Content-Length', String(message.media_bytes));
+      reply.type(message.media_mime);
+      return reply.send(openStoredVoice(message.storage_key));
+    }
+  );
+
 }
