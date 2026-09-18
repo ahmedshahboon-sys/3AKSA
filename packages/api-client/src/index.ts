@@ -62,6 +62,7 @@ export type PrivatePeer = {
 
 export type PrivateConversation = {
   id: string;
+  status?: 'pending' | 'active' | 'rejected';
   peer: PrivatePeer;
   lastText?: string | null;
   lastMessageAt?: string | null;
