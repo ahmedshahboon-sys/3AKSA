@@ -71,13 +71,13 @@ test('rooms lifecycle: policies -> favorite -> private invite -> moderator ban',
         visibility: 'public',
         genderPolicy: 'boys',
         maxUsers: 25,
-        tvEnabled: true
+        tvEnabled: false
       }
     });
     assert.equal(createPublic.statusCode, 201, createPublic.body);
     const publicRoom = createPublic.json<{ room: { id: string; viewerRole: string; tvEnabled: boolean } }>().room;
     assert.equal(publicRoom.viewerRole, 'owner');
-    assert.equal(publicRoom.tvEnabled, true);
+    assert.equal(publicRoom.tvEnabled, false);
 
     const girlDenied = await app.inject({
       method: 'POST',
@@ -185,13 +185,13 @@ test('rooms lifecycle: policies -> favorite -> private invite -> moderator ban',
       method: 'PATCH',
       url: `/3aksa/api/rooms/${privateRoomId}`,
       headers: auth(ownerSession.accessToken),
-      payload: { name: 'الغرفة الخاصة المعدلة', maxUsers: 12, tvEnabled: true }
+      payload: { name: 'الغرفة الخاصة المعدلة', maxUsers: 12, tvEnabled: false }
     });
     assert.equal(patchRoom.statusCode, 200, patchRoom.body);
     const patched = patchRoom.json<{ room: { name: string; maxUsers: number; tvEnabled: boolean } }>().room;
     assert.equal(patched.name, 'الغرفة الخاصة المعدلة');
     assert.equal(patched.maxUsers, 12);
-    assert.equal(patched.tvEnabled, true);
+    assert.equal(patched.tvEnabled, false);
   } finally {
     await cleanup();
     await app.close();
