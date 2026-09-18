@@ -93,14 +93,22 @@ jobs:
           tests/tv-realtime.integration.test.ts
 
       - name: Run legacy backend integration tests
-        run: >-
-          pnpm --filter @3aksa/api exec tsx --test
-          tests/auth.integration.test.ts
-          tests/nearby.integration.test.ts
-          tests/private.integration.test.ts
-          tests/rate-limit.integration.test.ts
-          tests/realtime.integration.test.ts
-          tests/rooms.integration.test.ts
-          tests/social-suggestions.integration.test.ts
-          tests/social.integration.test.ts
-          tests/voice.integration.test.ts
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests=(
+            tests/auth.integration.test.ts
+            tests/nearby.integration.test.ts
+            tests/private.integration.test.ts
+            tests/rate-limit.integration.test.ts
+            tests/realtime.integration.test.ts
+            tests/rooms.integration.test.ts
+            tests/social-suggestions.integration.test.ts
+            tests/social.integration.test.ts
+            tests/voice.integration.test.ts
+          )
+          for test_file in "${tests[@]}"; do
+            echo "::group::$test_file"
+            timeout 90s pnpm --filter @3aksa/api exec tsx --test "$test_file"
+            echo "::endgroup::"
+          done
