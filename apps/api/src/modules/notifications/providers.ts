@@ -126,9 +126,7 @@ export async function sendAndroidPush(
       },
       android:{
         priority:'high',
-        notification:{
-          sound:message.soundKey ? 'default' : undefined
-        }
+        ...(message.soundKey ? { notification:{ sound:'default' } } : {})
       }
     });
     return {status:'sent'};
