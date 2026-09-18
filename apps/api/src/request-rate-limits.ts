@@ -50,6 +50,21 @@ export function registerRequestRateLimits(app: FastifyInstance) {
       bucket = 'message-like';
       limit = 60;
       windowSeconds = 60;
+    } else if (request.method === 'POST' && route.endsWith('/tv/admin/imports/m3u')) {
+      bucket = 'tv-playlist-import';
+      limit = 10;
+      windowSeconds = 60 * 60;
+    } else if (
+      (request.method === 'POST' || request.method === 'PATCH' || request.method === 'PUT' || request.method === 'DELETE') &&
+      route.includes('/tv/admin/')
+    ) {
+      bucket = 'tv-admin-write';
+      limit = 60;
+      windowSeconds = 60;
+    } else if (request.method === 'PATCH' && route.endsWith('/rooms/:roomId/tv')) {
+      bucket = 'room-tv-control';
+      limit = 60;
+      windowSeconds = 60;
     }
 
     if (!bucket) return;
