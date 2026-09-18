@@ -497,10 +497,25 @@ export class ApiClient {
     return this.request<{ prayer: PrayerSchedule }>(withQuery('/prayer/schedule', { reference, date }));
   }
 
+  prayerReferences() {
+    return this.request<{ references: Array<{ key: string; name: string; timezone: string }> }>('/prayer/references');
+  }
+
   prayerPreferences() {
     return this.request<{ preferences: {
       referenceKey: string; prayerAlertsEnabled: boolean; prayerSoundEnabled: boolean; gentleRemindersEnabled: boolean;
     } }>('/prayer/preferences');
+  }
+
+  updatePrayerPreferences(patch: {
+    referenceKey?: string;
+    prayerAlertsEnabled?: boolean;
+    prayerSoundEnabled?: boolean;
+    gentleRemindersEnabled?: boolean;
+  }) {
+    return this.request<{ preferences: {
+      referenceKey: string; prayerAlertsEnabled: boolean; prayerSoundEnabled: boolean; gentleRemindersEnabled: boolean;
+    } }>('/prayer/preferences', { method: 'PATCH', body: JSON.stringify(patch) });
   }
 
   resolvePrayerReference(latitude: number, longitude: number) {
