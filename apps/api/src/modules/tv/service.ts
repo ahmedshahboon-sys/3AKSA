@@ -519,22 +519,34 @@ export async function reorderTvChannels(actorUserId: string, channelIds: string[
 
   return withTransaction(async (client) => {
     await requireTvAdmin(actorUserId, client);
-    const found = await client.query<{ id: string }>(
-      'SELECT id FROM tv_channels WHERE id=ANY($1::uuid[]) FOR UPDATE',
-      [channelIds]
+    const all = await client.query<{ id: string }>(
+      `SELECT id
+       FROM tv_channels
+       ORDER BY sort_order,lower(name),id
+       FOR UPDATE`
     );
-    if (found.rows.length !== channelIds.length) throw new Error('TV_CHANNEL_NOT_FOUND');
+    const existingIds = new Set(all.rows.map((row) => row.id));
+    if (channelIds.some((id) => !existingIds.has(id))) throw new Error('TV_CHANNEL_NOT_FOUND');
 
-    for (let index = 0; index < channelIds.length; index += 1) {
+    const selected = new Set(channelIds);
+    const completeOrder = [
+      ...channelIds,
+      ...all.rows.map((row) => row.id).filter((id) => !selected.has(id))
+    ];
+
+    for (let index = 0; index < completeOrder.length; index += 1) {
       await client.query(
         'UPDATE tv_channels SET sort_order=$2,updated_at=now() WHERE id=$1',
-        [channelIds[index], index]
+        [completeOrder[index], index]
       );
     }
     await audit(client, actorUserId, 'tv_channel_reorder', {
-      metadata: { channelCount: channelIds.length }
+      metadata: {
+        requestedCount: channelIds.length,
+        channelCount: completeOrder.length
+      }
     });
-    return { reordered: channelIds.length };
+    return { reordered: completeOrder.length };
   });
 }
 
