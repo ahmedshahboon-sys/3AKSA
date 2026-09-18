@@ -119,6 +119,13 @@ function publicChannel(row: TvChannelRow): TvBroadcastChannel {
   };
 }
 
+function catalogChannelDto(row: TvChannelRow) {
+  return {
+    ...publicChannel(row),
+    sortOrder: row.sort_order
+  };
+}
+
 async function hasTvAdminRole(userId: string, client?: PoolClient) {
   const sql = `SELECT 1
                FROM staff_roles
@@ -563,7 +570,7 @@ export async function listTvChannels(options: {
      LIMIT $${values.length}`,
     values
   );
-  return result.rows.map(channelDto);
+  return result.rows.map(catalogChannelDto);
 }
 
 export async function listAdminTvChannels(actorUserId: string) {
