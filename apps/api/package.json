@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@3aksa/config": "workspace:*",
+    "adhan": "^4.4.6",
     "dotenv": "^17.2.0",
     "fastify": "^5.12.5",
     "pg": "^8.16.3",
