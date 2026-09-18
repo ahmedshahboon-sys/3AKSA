@@ -80,7 +80,8 @@ jobs:
         run: pnpm --filter @3aksa/api db:migrate
 
       - name: Run TV integration tests
-        run: >-
-          pnpm --filter @3aksa/api exec tsx --test
-          tests/tv.integration.test.ts
-          tests/tv-realtime.integration.test.ts
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @3aksa/api exec tsx --test tests/tv.integration.test.ts
+          pnpm --filter @3aksa/api exec tsx --test tests/tv-realtime.integration.test.ts
