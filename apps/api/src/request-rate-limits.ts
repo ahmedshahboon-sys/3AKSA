@@ -65,6 +65,18 @@ export function registerRequestRateLimits(app: FastifyInstance) {
       bucket = 'room-tv-control';
       limit = 60;
       windowSeconds = 60;
+    } else if (request.method === 'POST' && route.endsWith('/prayer/reference/resolve')) {
+      bucket = 'prayer-reference-resolve';
+      limit = 20;
+      windowSeconds = 60 * 60;
+    } else if (request.method === 'PATCH' && route.endsWith('/prayer/preferences')) {
+      bucket = 'prayer-preferences';
+      limit = 30;
+      windowSeconds = 60;
+    } else if (request.method === 'PATCH' && route.endsWith('/prayer/admin/settings')) {
+      bucket = 'prayer-admin-settings';
+      limit = 20;
+      windowSeconds = 60 * 60;
     }
 
     if (!bucket) return;
