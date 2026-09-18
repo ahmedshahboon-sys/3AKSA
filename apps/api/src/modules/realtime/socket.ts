@@ -8,6 +8,7 @@ import { normalizeVoiceBinary } from '../../storage.js';
 import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
 import { prayerEvents } from '../prayer/events.js';
+import { notificationEvents } from '../notifications/events.js';
 import { tvEvents } from '../tv/events.js';
 import { setRoomTvState } from '../tv/service.js';
 import {
@@ -161,6 +162,12 @@ export function attachRealtime(app: FastifyInstance) {
       message: event.message,
       soundEnabled: event.soundEnabled,
       displayDurationMs: 3000
+    });
+  });
+
+  const unsubscribeNotifications = notificationEvents.onNew((event) => {
+    io.to(userChannel(event.userId)).emit('notification:new', {
+      notification: event.notification
     });
   });
 
@@ -750,6 +757,7 @@ export function attachRealtime(app: FastifyInstance) {
   app.addHook('onClose', async () => {
     unsubscribeTv();
     unsubscribePrayer();
+    unsubscribeNotifications();
     await new Promise<void>((resolve) => io.close(() => resolve()));
     await closeRedis();
   });
