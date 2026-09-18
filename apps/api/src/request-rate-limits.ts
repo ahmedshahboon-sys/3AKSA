@@ -43,6 +43,10 @@ export function registerRequestRateLimits(app: FastifyInstance) {
       bucket = 'paid-gift';
       limit = 20;
       windowSeconds = 60;
+    } else if ((request.method === 'PUT' || request.method === 'DELETE') && route.endsWith('/reactions/like')) {
+      bucket = 'message-like';
+      limit = 60;
+      windowSeconds = 60;
     }
 
     if (!bucket) return;
