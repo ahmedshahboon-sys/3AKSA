@@ -1,3 +1,4 @@
+import { env } from '../../config.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticateRequest } from '../auth/session.js';
 import {
@@ -40,6 +41,19 @@ function idempotencyKey(request: FastifyRequest) {
 
 export async function registerEconomyRoutes(app: FastifyInstance, options: { basePath: string }) {
   const walletPrefix = `${options.basePath}/wallet`;
+
+  app.get(`${walletPrefix}/topup-instructions`, async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return;
+
+    return reply.send({
+      method: 'whatsapp',
+      contactNumber: env.ADMIN_WHATSAPP_NUMBER,
+      currency: 'LYD',
+      manualReviewRequired: true,
+      requestStatus: 'pending_until_review'
+    });
+  });
 
   app.get(walletPrefix, async (request, reply) => {
     const user = await requireUser(request, reply);
