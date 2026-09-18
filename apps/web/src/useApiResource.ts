@@ -17,12 +17,23 @@ const errorText:Record<string,string>={
   ITEM_NOT_PURCHASABLE:'المنتج مش متاح للشراء.',
   ALREADY_OWNED:'المنتج موجود عندك من قبل.',
   TV_CHANNEL_NOT_AVAILABLE:'القناة مش متاحة توا.',
-  PRAYER_REFERENCE_NOT_FOUND:'مرجع مواقيت الصلاة مش متاح.'
+  PRAYER_REFERENCE_NOT_FOUND:'مرجع مواقيت الصلاة مش متاح.',
+  CONVERSATION_NOT_FOUND:'المحادثة مش موجودة.',
+  MESSAGE_SEND_FAILED:'تعذر إرسال الرسالة.',
+  PRIVATE_MESSAGE_SEND_FAILED:'تعذر إرسال الرسالة الخاصة.',
+  PRIVATE_VOICE_SEND_FAILED:'تعذر إرسال التسجيل.',
+  VOICE_SEND_FAILED:'تعذر إرسال التسجيل.',
+  REALTIME_ERROR:'الاتصال المباشر بالسيرفر انقطع. جرّب مرة ثانية.',
+  REALTIME_TIMEOUT:'السيرفر تأخر في الرد. جرّب مرة ثانية.',
+  GEOLOCATION_DENIED:'تعذر الوصول للموقع. راجع إذن الموقع في الجهاز.',
+  PUSH_NOT_SUPPORTED:'الجهاز أو المتصفح ما يدعمش Push.',
+  WEB_PUSH_NOT_CONFIGURED:'إشعارات Push مش مفعلة على السيرفر توا.',
+  PUSH_PERMISSION_DENIED:'لازم تسمح بالإشعارات من إعدادات الجهاز أو المتصفح.'
 };
 
 export function readableError(error:unknown){
   if(error instanceof ApiError)return errorText[error.code]??`صار خطأ (${error.code})`;
-  if(error instanceof Error)return error.message;
+  if(error instanceof Error)return errorText[error.message]??error.message;
   return 'صار خطأ غير متوقع.';
 }
 
