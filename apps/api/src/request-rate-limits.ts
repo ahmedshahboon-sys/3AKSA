@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { consumeRateLimit } from './rate-limit.js';
 
 function requestSubject(authorization: string | undefined, ip: string) {
   const token = authorization?.trim();
-  return token ? `auth:${token}` : `ip:${ip}`;
+  if (!token) return `ip:${ip}`;
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  return `auth:${tokenHash}`;
 }
 
 export function registerRequestRateLimits(app: FastifyInstance) {
