@@ -55,13 +55,13 @@ type RoomTvRow = {
 
 export type ChannelCreateInput = {
   name: string;
-  groupName?: string | null;
+  groupName?: string | null | undefined;
   streamUrl: string;
-  logoUrl?: string | null;
-  sortOrder?: number;
-  status?: 'active' | 'hidden';
+  logoUrl?: string | null | undefined;
+  sortOrder?: number | undefined;
+  status?: 'active' | 'hidden' | undefined;
   rightsAttested: boolean;
-  rightsNote?: string | null;
+  rightsNote?: string | null | undefined;
 };
 
 export type ChannelPatchInput = Partial<Omit<ChannelCreateInput, 'rightsAttested'>> & {
@@ -69,8 +69,8 @@ export type ChannelPatchInput = Partial<Omit<ChannelCreateInput, 'rightsAttested
 };
 
 export type RoomTvSetInput = {
-  enabled?: boolean;
-  channelId?: string | null;
+  enabled?: boolean | undefined;
+  channelId?: string | null | undefined;
 };
 
 function cleanText(value: string | null | undefined, max: number) {
@@ -249,11 +249,11 @@ export async function createDirectChannel(actorUserId: string, input: ChannelCre
 
 type ImportOptions = {
   sourceType: 'upload' | 'url';
-  sourceLabel?: string | null;
-  sourceHost?: string | null;
-  sourceFingerprint?: string | null;
+  sourceLabel?: string | null | undefined;
+  sourceHost?: string | null | undefined;
+  sourceFingerprint?: string | null | undefined;
   rightsAttested: boolean;
-  rightsNote?: string | null;
+  rightsNote?: string | null | undefined;
 };
 
 async function importEntries(
@@ -339,9 +339,9 @@ export async function importM3uContent(
   actorUserId: string,
   content: string,
   options: {
-    sourceLabel?: string | null;
+    sourceLabel?: string | null | undefined;
     rightsAttested: boolean;
-    rightsNote?: string | null;
+    rightsNote?: string | null | undefined;
   }
 ) {
   await requireTvAdmin(actorUserId);
@@ -359,9 +359,9 @@ export async function importM3uFromUrl(
   actorUserId: string,
   sourceUrl: string,
   options: {
-    sourceLabel?: string | null;
+    sourceLabel?: string | null | undefined;
     rightsAttested: boolean;
-    rightsNote?: string | null;
+    rightsNote?: string | null | undefined;
   }
 ) {
   await requireTvAdmin(actorUserId);
@@ -529,10 +529,10 @@ export async function reorderTvChannels(actorUserId: string, channelIds: string[
 }
 
 export async function listTvChannels(options: {
-  sort?: 'manual' | 'alphabetical';
-  search?: string;
-  group?: string;
-  limit?: number;
+  sort?: 'manual' | 'alphabetical' | undefined;
+  search?: string | undefined;
+  group?: string | undefined;
+  limit?: number | undefined;
 } = {}) {
   const values: unknown[] = [];
   const where = [`status='active'`, 'rights_confirmed=true'];
