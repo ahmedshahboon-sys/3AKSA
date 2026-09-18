@@ -80,6 +80,15 @@ async function existingPrivateMessage(
   if (!clientMessageId) return null;
   const result = await query<PrivateMessageRow & PrivateConversationRow & { conversation_created_at: Date }>(
     `SELECT ${PRIVATE_MESSAGE_SELECT},
+            (SELECT count(*)::int
+             FROM message_reactions mr
+             WHERE mr.private_message_id = m.id AND mr.reaction_code = 'like') AS like_count,
+            EXISTS (
+              SELECT 1 FROM message_reactions mr
+              WHERE mr.private_message_id = m.id
+                AND mr.reaction_code = 'like'
+                AND mr.reactor_user_id = $1
+            ) AS viewer_liked,
             c.user_low_id, c.user_high_id, c.requested_by, c.status,
             c.accepted_at, c.created_at AS conversation_created_at, c.updated_at
      FROM private_messages m
