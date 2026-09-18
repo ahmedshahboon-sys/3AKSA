@@ -108,8 +108,7 @@ export type WalletHistoryItem = {
 export type StoreItem = {
   id: string;
   code: string;
-  itemType?: string;
-  type?: string;
+  type: 'frame'|'entry_sound'|'theme'|'sticker_pack'|'badge'|'gift'|'reaction';
   name: string;
   description?: string | null;
   priceMilli: number;
@@ -416,6 +415,15 @@ export class ApiClient {
     });
   }
 
+  topups() {
+    return this.request<{ topups: Array<{
+      id: string; amountMilli: number; amountLyd: string; currency: 'LYD';
+      status: 'pending'|'approved'|'rejected'|'cancelled';
+      paymentReference: string|null; note: string|null; reviewedAt: string|null;
+      ledgerTransactionId: string|null; createdAt: string; updatedAt: string;
+    }> }>('/wallet/topups');
+  }
+
   transfer(username: string, amountMilli: number, idempotencyKey: string) {
     return this.request<{ transaction: unknown; balanceMilli: number; balanceLyd: string; replayed: boolean }>('/wallet/transfers', {
       method: 'POST',
@@ -424,16 +432,23 @@ export class ApiClient {
     });
   }
 
-  storeItems(itemType?: string) {
-    return this.request<{ items: StoreItem[] }>(withQuery('/store/items', { itemType }));
+  storeItems(type?: StoreItem['type']) {
+    return this.request<{ items: StoreItem[] }>(withQuery('/store/items', { type }));
   }
 
   inventory() {
-    return this.request<{ items?: StoreItem[]; inventory?: StoreItem[] }>('/store/inventory');
+    return this.request<{ items: Array<StoreItem & { acquiredAt: string }> }>('/store/inventory');
   }
 
   equipment() {
-    return this.request<{ equipment: unknown }>('/store/equipment');
+    return this.request<{ equipment: Array<{ slot: 'frame'|'entry_sound'|'theme'|'badge'; item: StoreItem; equippedAt: string }> }>('/store/equipment');
+  }
+
+  equip(code: string) {
+    return this.request<{ equipment: { slot: string; item: StoreItem; equippedAt: string } }>('/store/equipment', {
+      method: 'PUT',
+      body: JSON.stringify({ code })
+    });
   }
 
   purchase(code: string, idempotencyKey: string) {
