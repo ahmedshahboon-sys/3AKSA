@@ -53,7 +53,13 @@ export function roomMessageDto(message: RoomMessageRow) {
   };
 }
 
-async function existingRoomMessage(senderId: string, clientMessageId?: string) {
+async function existingRoomMessage(
+  roomId: string,
+  senderId: string,
+  clientMessageId: string | undefined,
+  expectedType: 'text' | 'voice',
+  expectedText?: string
+) {
   if (!clientMessageId) return null;
   const result = await query<RoomMessageRow>(
     `SELECT ${MESSAGE_SELECT}
@@ -63,7 +69,16 @@ async function existingRoomMessage(senderId: string, clientMessageId?: string) {
      LIMIT 1`,
     [senderId, clientMessageId]
   );
-  return result.rows[0] ?? null;
+  const row = result.rows[0];
+  if (!row) return null;
+  if (
+    row.room_id !== roomId ||
+    row.message_type !== expectedType ||
+    (expectedType === 'text' && row.text_content !== expectedText)
+  ) {
+    throw new Error('CLIENT_MESSAGE_ID_REUSED');
+  }
+  return row;
 }
 
 export async function createRoomTextMessage(
@@ -72,7 +87,7 @@ export async function createRoomTextMessage(
   text: string,
   clientMessageId?: string
 ) {
-  const existing = await existingRoomMessage(senderId, clientMessageId);
+  const existing = await existingRoomMessage(roomId, senderId, clientMessageId, 'text', text);
   if (existing) return existing;
 
   try {
@@ -98,7 +113,7 @@ export async function createRoomTextMessage(
     return result.rows[0]!;
   } catch (error) {
     if ((error as { code?: string }).code === '23505' && clientMessageId) {
-      const duplicate = await existingRoomMessage(senderId, clientMessageId);
+      const duplicate = await existingRoomMessage(roomId, senderId, clientMessageId, 'text', text);
       if (duplicate) return duplicate;
     }
     throw error;
@@ -112,7 +127,7 @@ export async function createRoomVoiceMessage(
   durationMs: number,
   clientMessageId?: string
 ) {
-  const existing = await existingRoomMessage(senderId, clientMessageId);
+  const existing = await existingRoomMessage(roomId, senderId, clientMessageId, 'voice');
   if (existing) return existing;
 
   const stored = await storeVoiceBinary(audio, durationMs);
@@ -152,7 +167,7 @@ export async function createRoomVoiceMessage(
   } catch (error) {
     await deleteStoredVoice(stored.storageKey);
     if ((error as { code?: string }).code === '23505' && clientMessageId) {
-      const duplicate = await existingRoomMessage(senderId, clientMessageId);
+      const duplicate = await existingRoomMessage(roomId, senderId, clientMessageId, 'voice');
       if (duplicate) return duplicate;
     }
     throw error;
