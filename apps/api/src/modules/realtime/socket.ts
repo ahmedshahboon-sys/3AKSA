@@ -7,6 +7,7 @@ import { consumeRateLimit } from '../../rate-limit.js';
 import { normalizeVoiceBinary } from '../../storage.js';
 import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
+import { prayerEvents } from '../prayer/events.js';
 import { tvEvents } from '../tv/events.js';
 import { setRoomTvState } from '../tv/service.js';
 import {
@@ -148,6 +149,18 @@ export function attachRealtime(app: FastifyInstance) {
     io.to(roomChannel(roomId)).emit('room:tv-state', {
       roomId,
       tv: state
+    });
+  });
+
+  const unsubscribePrayer = prayerEvents.onDue((event) => {
+    io.to(userChannel(event.userId)).emit('prayer:time', {
+      prayer: event.prayer,
+      referenceKey: event.referenceKey,
+      referenceName: event.referenceName,
+      scheduledAt: event.scheduledAt,
+      message: event.message,
+      soundEnabled: event.soundEnabled,
+      displayDurationMs: 3000
     });
   });
 
@@ -736,6 +749,7 @@ export function attachRealtime(app: FastifyInstance) {
 
   app.addHook('onClose', async () => {
     unsubscribeTv();
+    unsubscribePrayer();
     await new Promise<void>((resolve) => io.close(() => resolve()));
     await closeRedis();
   });
