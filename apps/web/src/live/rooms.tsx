@@ -8,6 +8,7 @@ import { Avatar, ScreenHeader, V1GuardNote } from '../ui';
 import { Icon } from '../icons';
 import { LiveRoomCard, LiveState, genderToUi, localTime } from './common';
 import { ProtectedVoicePlayer, VoiceRecorderButton } from './voice';
+import { LiveTvPlayer } from './tvPlayer';
 
 type RoomTvState={
   enabled:boolean;
@@ -220,7 +221,7 @@ export function LiveRoomChatScreen(){
 
       {tv?.enabled&&tv.channel?(
         <section className="tv-player compact-player">
-          <div className="tv-stage"><video controls playsInline src={tv.channel.streamUrl} /></div>
+          <div className="tv-stage"><LiveTvPlayer src={tv.channel.streamUrl} title={tv.channel.name}/></div>
           <div className="tv-controls"><div><b>{tv.channel.name}</b><small>{tv.channel.groupName||'بث مباشر'}</small></div></div>
         </section>
       ):null}
