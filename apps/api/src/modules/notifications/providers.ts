@@ -1,6 +1,4 @@
 import webPush from 'web-push';
-import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
-import { getMessaging } from 'firebase-admin/messaging';
 import { env } from '../../config.js';
 
 export type PushMessage = {
@@ -27,7 +25,20 @@ export type PushSendResult = {
 };
 
 let vapidConfigured=false;
-let firebaseApp:App|null=null;
+let firebaseApp: Awaited<ReturnType<typeof importFirebaseApp>> | null = null;
+
+async function importFirebaseApp(){
+  const mod=await import('firebase-admin/app');
+  const existing=mod.getApps().find((app)=>app.name==='3aksa-push');
+  if(existing)return existing;
+  return mod.initializeApp({
+    credential:mod.cert({
+      projectId:env.FCM_PROJECT_ID!,
+      clientEmail:env.FCM_CLIENT_EMAIL!,
+      privateKey:env.FCM_PRIVATE_KEY!.replace(/\\n/g,'\n')
+    })
+  },'3aksa-push');
+}
 
 function webPushReady(){
   return Boolean(
@@ -51,21 +62,10 @@ function fcmReady(){
   return Boolean(env.FCM_PROJECT_ID && env.FCM_CLIENT_EMAIL && env.FCM_PRIVATE_KEY);
 }
 
-function getFirebaseApp(){
+async function getFirebaseApp(){
   if(firebaseApp)return firebaseApp;
   if(!fcmReady())return null;
-  const existing=getApps().find((app)=>app.name==='3aksa-push');
-  if(existing){
-    firebaseApp=existing;
-    return existing;
-  }
-  firebaseApp=initializeApp({
-    credential:cert({
-      projectId:env.FCM_PROJECT_ID!,
-      clientEmail:env.FCM_CLIENT_EMAIL!,
-      privateKey:env.FCM_PRIVATE_KEY!.replace(/\\n/g,'\n')
-    })
-  },'3aksa-push');
+  firebaseApp=await importFirebaseApp();
   return firebaseApp;
 }
 
@@ -112,8 +112,9 @@ export async function sendAndroidPush(
   subscription:AndroidPushPayload,
   message:PushMessage
 ):Promise<PushSendResult>{
-  const app=getFirebaseApp();
+  const app=await getFirebaseApp();
   if(!app)return {status:'disabled',errorCode:'FCM_NOT_CONFIGURED'};
+  const { getMessaging }=await import('firebase-admin/messaging');
   try{
     await getMessaging(app).send({
       token:subscription.token,
