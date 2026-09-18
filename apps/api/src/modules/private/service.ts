@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../../db.js';
+import { deleteStoredVoice, storeVoiceBinary } from '../../storage.js';
 
 export type PrivateConversationRow = {
   id: string;
@@ -20,11 +21,24 @@ export type PrivateMessageRow = {
   sender_username: string;
   sender_display_name: string;
   sender_gender: 'boy' | 'girl';
-  message_type: 'text';
-  text_content: string;
+  message_type: 'text' | 'voice';
+  text_content: string | null;
+  storage_key: string | null;
+  media_mime: 'audio/webm' | 'audio/ogg' | 'audio/mp4' | null;
+  media_bytes: number | null;
+  media_duration_ms: number | null;
+  client_message_id: string | null;
   created_at: Date;
   expires_at: Date;
 };
+
+const PRIVATE_MESSAGE_SELECT = `
+  m.id, m.conversation_id, m.sender_id, u.username AS sender_username,
+  u.display_name AS sender_display_name, u.gender AS sender_gender,
+  m.message_type, m.text_content, m.storage_key, m.media_mime,
+  m.media_bytes, m.media_duration_ms, m.client_message_id,
+  m.created_at, m.expires_at
+`;
 
 export function orderedUserIds(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
@@ -50,25 +64,110 @@ async function areFriends(a: string, b: string, client: PoolClient) {
   return (result.rowCount ?? 0) > 0;
 }
 
-async function insertTextMessage(client: PoolClient, conversationId: string, senderId: string, text: string) {
+async function existingPrivateMessage(senderId: string, clientMessageId?: string) {
+  if (!clientMessageId) return null;
+  const result = await query<PrivateMessageRow & PrivateConversationRow>(
+    `SELECT ${PRIVATE_MESSAGE_SELECT},
+            c.user_low_id, c.user_high_id, c.requested_by, c.status,
+            c.accepted_at, c.created_at AS conversation_created_at, c.updated_at
+     FROM private_messages m
+     JOIN private_conversations c ON c.id = m.conversation_id
+     JOIN users u ON u.id = m.sender_id
+     WHERE m.sender_id = $1 AND m.client_message_id = $2
+     LIMIT 1`,
+    [senderId, clientMessageId]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  const conversation: PrivateConversationRow = {
+    id: row.conversation_id,
+    user_low_id: row.user_low_id,
+    user_high_id: row.user_high_id,
+    requested_by: row.requested_by,
+    status: row.status,
+    accepted_at: row.accepted_at,
+    created_at: (row as unknown as { conversation_created_at: Date }).conversation_created_at,
+    updated_at: row.updated_at
+  };
+  return { conversation, message: row as PrivateMessageRow };
+}
+
+async function insertTextMessage(
+  client: PoolClient,
+  conversationId: string,
+  senderId: string,
+  text: string,
+  clientMessageId?: string
+) {
   const result = await client.query<PrivateMessageRow>(
     `WITH ts AS (SELECT clock_timestamp() AS created_at),
           inserted AS (
             INSERT INTO private_messages (
-              id, conversation_id, sender_id, message_type, text_content, created_at, expires_at
+              id, conversation_id, sender_id, message_type, text_content,
+              client_message_id, created_at, expires_at
             )
-            SELECT $1, $2, $3, 'text', $4, ts.created_at, ts.created_at + interval '24 hours'
+            SELECT $1, $2, $3, 'text', $4, $5, ts.created_at, ts.created_at + interval '24 hours'
             FROM ts
-            RETURNING id, conversation_id, sender_id, message_type, text_content, created_at, expires_at
+            RETURNING *
           )
      SELECT i.id, i.conversation_id, i.sender_id, u.username AS sender_username,
             u.display_name AS sender_display_name, u.gender AS sender_gender,
-            i.message_type, i.text_content, i.created_at, i.expires_at
+            i.message_type, i.text_content, i.storage_key, i.media_mime,
+            i.media_bytes, i.media_duration_ms, i.client_message_id,
+            i.created_at, i.expires_at
      FROM inserted i JOIN users u ON u.id = i.sender_id`,
-    [randomUUID(), conversationId, senderId, text]
+    [randomUUID(), conversationId, senderId, text, clientMessageId ?? null]
   );
   await client.query('UPDATE private_conversations SET updated_at = now() WHERE id = $1', [conversationId]);
   return result.rows[0]!;
+}
+
+async function insertVoiceMessage(
+  client: PoolClient,
+  conversationId: string,
+  senderId: string,
+  audio: Buffer,
+  durationMs: number,
+  clientMessageId?: string
+) {
+  const stored = await storeVoiceBinary(audio, durationMs);
+  try {
+    const result = await client.query<PrivateMessageRow>(
+      `WITH ts AS (SELECT clock_timestamp() AS created_at),
+            inserted AS (
+              INSERT INTO private_messages (
+                id, conversation_id, sender_id, message_type, text_content,
+                storage_key, media_mime, media_bytes, media_duration_ms,
+                client_message_id, created_at, expires_at
+              )
+              SELECT $1, $2, $3, 'voice', NULL, $4, $5, $6, $7, $8,
+                     ts.created_at, ts.created_at + interval '24 hours'
+              FROM ts
+              RETURNING *
+            )
+       SELECT i.id, i.conversation_id, i.sender_id, u.username AS sender_username,
+              u.display_name AS sender_display_name, u.gender AS sender_gender,
+              i.message_type, i.text_content, i.storage_key, i.media_mime,
+              i.media_bytes, i.media_duration_ms, i.client_message_id,
+              i.created_at, i.expires_at
+       FROM inserted i JOIN users u ON u.id = i.sender_id`,
+      [
+        randomUUID(),
+        conversationId,
+        senderId,
+        stored.storageKey,
+        stored.mime,
+        stored.bytes,
+        stored.durationMs,
+        clientMessageId ?? null
+      ]
+    );
+    await client.query('UPDATE private_conversations SET updated_at = now() WHERE id = $1', [conversationId]);
+    return result.rows[0]!;
+  } catch (error) {
+    await deleteStoredVoice(stored.storageKey);
+    throw error;
+  }
 }
 
 export function privateMessageDto(message: PrivateMessageRow) {
@@ -76,7 +175,15 @@ export function privateMessageDto(message: PrivateMessageRow) {
     id: message.id,
     conversationId: message.conversation_id,
     type: message.message_type,
-    text: message.text_content,
+    text: message.message_type === 'text' ? message.text_content : null,
+    voice: message.message_type === 'voice'
+      ? {
+          mime: message.media_mime,
+          bytes: message.media_bytes,
+          durationMs: message.media_duration_ms
+        }
+      : null,
+    clientMessageId: message.client_message_id,
     createdAt: message.created_at,
     expiresAt: message.expires_at,
     sender: {
@@ -88,59 +195,152 @@ export function privateMessageDto(message: PrivateMessageRow) {
   };
 }
 
-export async function startPrivateText(senderId: string, targetId: string, text: string) {
-  return withTransaction(async (client) => {
-    if (await areBlocked(senderId, targetId, client)) throw new Error('RELATIONSHIP_BLOCKED');
-    const [low, high] = orderedUserIds(senderId, targetId);
-    const existing = await client.query<PrivateConversationRow>(
-      `SELECT * FROM private_conversations
-       WHERE user_low_id = $1 AND user_high_id = $2
-       FOR UPDATE`,
-      [low, high]
-    );
-    let conversation = existing.rows[0];
+export async function startPrivateText(
+  senderId: string,
+  targetId: string,
+  text: string,
+  clientMessageId?: string
+) {
+  const prior = await existingPrivateMessage(senderId, clientMessageId);
+  if (prior) return prior;
 
-    if (!conversation) {
-      const friends = await areFriends(senderId, targetId, client);
-      const status = friends ? 'active' : 'pending';
-      const created = await client.query<PrivateConversationRow>(
-        `INSERT INTO private_conversations (
-           id, user_low_id, user_high_id, requested_by, status, accepted_at
-         ) VALUES (
-           $1, $2, $3, $4, $5::varchar(16),
-           CASE WHEN $5::varchar(16) = 'active' THEN now() ELSE NULL END
-         )
-         RETURNING *`,
-        [randomUUID(), low, high, senderId, status]
+  try {
+    return await withTransaction(async (client) => {
+      if (await areBlocked(senderId, targetId, client)) throw new Error('RELATIONSHIP_BLOCKED');
+      const [low, high] = orderedUserIds(senderId, targetId);
+      const existing = await client.query<PrivateConversationRow>(
+        `SELECT * FROM private_conversations
+         WHERE user_low_id = $1 AND user_high_id = $2
+         FOR UPDATE`,
+        [low, high]
       );
-      conversation = created.rows[0]!;
-    } else if (conversation.status === 'pending') {
-      if (conversation.requested_by === senderId) throw new Error('MESSAGE_REQUEST_PENDING');
-      throw new Error('INCOMING_REQUEST_PENDING');
-    } else if (conversation.status === 'rejected') {
-      throw new Error('MESSAGE_REQUEST_REJECTED');
-    }
+      let conversation = existing.rows[0];
 
-    const message = await insertTextMessage(client, conversation.id, senderId, text);
-    return { conversation, message };
-  });
+      if (!conversation) {
+        const friends = await areFriends(senderId, targetId, client);
+        const status = friends ? 'active' : 'pending';
+        const created = await client.query<PrivateConversationRow>(
+          `INSERT INTO private_conversations (
+             id, user_low_id, user_high_id, requested_by, status, accepted_at
+           ) VALUES (
+             $1, $2, $3, $4, $5::varchar(16),
+             CASE WHEN $5::varchar(16) = 'active' THEN now() ELSE NULL END
+           )
+           RETURNING *`,
+          [randomUUID(), low, high, senderId, status]
+        );
+        conversation = created.rows[0]!;
+      } else if (conversation.status === 'pending') {
+        if (conversation.requested_by === senderId) throw new Error('MESSAGE_REQUEST_PENDING');
+        throw new Error('INCOMING_REQUEST_PENDING');
+      } else if (conversation.status === 'rejected') {
+        throw new Error('MESSAGE_REQUEST_REJECTED');
+      }
+
+      const message = await insertTextMessage(client, conversation.id, senderId, text, clientMessageId);
+      return { conversation, message };
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505' && clientMessageId) {
+      const duplicate = await existingPrivateMessage(senderId, clientMessageId);
+      if (duplicate) return duplicate;
+    }
+    throw error;
+  }
 }
 
-export async function sendActivePrivateText(conversationId: string, senderId: string, text: string) {
-  return withTransaction(async (client) => {
-    const found = await client.query<PrivateConversationRow>(
-      `SELECT * FROM private_conversations
-       WHERE id = $1 AND (user_low_id = $2 OR user_high_id = $2)
-       FOR UPDATE`,
-      [conversationId, senderId]
-    );
-    const conversation = found.rows[0];
-    if (!conversation || conversation.status !== 'active') throw new Error('CONVERSATION_NOT_ACTIVE');
-    const peerId = conversation.user_low_id === senderId ? conversation.user_high_id : conversation.user_low_id;
-    if (await areBlocked(senderId, peerId, client)) throw new Error('RELATIONSHIP_BLOCKED');
-    const message = await insertTextMessage(client, conversation.id, senderId, text);
-    return { conversation, message, peerId };
-  });
+export async function sendActivePrivateText(
+  conversationId: string,
+  senderId: string,
+  text: string,
+  clientMessageId?: string
+) {
+  const prior = await existingPrivateMessage(senderId, clientMessageId);
+  if (prior) {
+    const peerId = prior.conversation.user_low_id === senderId
+      ? prior.conversation.user_high_id
+      : prior.conversation.user_low_id;
+    return { ...prior, peerId };
+  }
+
+  try {
+    return await withTransaction(async (client) => {
+      const found = await client.query<PrivateConversationRow>(
+        `SELECT * FROM private_conversations
+         WHERE id = $1 AND (user_low_id = $2 OR user_high_id = $2)
+         FOR UPDATE`,
+        [conversationId, senderId]
+      );
+      const conversation = found.rows[0];
+      if (!conversation || conversation.status !== 'active') throw new Error('CONVERSATION_NOT_ACTIVE');
+      const peerId = conversation.user_low_id === senderId ? conversation.user_high_id : conversation.user_low_id;
+      if (await areBlocked(senderId, peerId, client)) throw new Error('RELATIONSHIP_BLOCKED');
+      const message = await insertTextMessage(client, conversation.id, senderId, text, clientMessageId);
+      return { conversation, message, peerId };
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505' && clientMessageId) {
+      const duplicate = await existingPrivateMessage(senderId, clientMessageId);
+      if (duplicate) {
+        const peerId = duplicate.conversation.user_low_id === senderId
+          ? duplicate.conversation.user_high_id
+          : duplicate.conversation.user_low_id;
+        return { ...duplicate, peerId };
+      }
+    }
+    throw error;
+  }
+}
+
+export async function sendActivePrivateVoice(
+  conversationId: string,
+  senderId: string,
+  audio: Buffer,
+  durationMs: number,
+  clientMessageId?: string
+) {
+  const prior = await existingPrivateMessage(senderId, clientMessageId);
+  if (prior) {
+    const peerId = prior.conversation.user_low_id === senderId
+      ? prior.conversation.user_high_id
+      : prior.conversation.user_low_id;
+    return { ...prior, peerId };
+  }
+
+  try {
+    return await withTransaction(async (client) => {
+      const found = await client.query<PrivateConversationRow>(
+        `SELECT * FROM private_conversations
+         WHERE id = $1 AND (user_low_id = $2 OR user_high_id = $2)
+         FOR UPDATE`,
+        [conversationId, senderId]
+      );
+      const conversation = found.rows[0];
+      if (!conversation || conversation.status !== 'active') throw new Error('CONVERSATION_NOT_ACTIVE');
+      const peerId = conversation.user_low_id === senderId ? conversation.user_high_id : conversation.user_low_id;
+      if (await areBlocked(senderId, peerId, client)) throw new Error('RELATIONSHIP_BLOCKED');
+      const message = await insertVoiceMessage(
+        client,
+        conversation.id,
+        senderId,
+        audio,
+        durationMs,
+        clientMessageId
+      );
+      return { conversation, message, peerId };
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505' && clientMessageId) {
+      const duplicate = await existingPrivateMessage(senderId, clientMessageId);
+      if (duplicate) {
+        const peerId = duplicate.conversation.user_low_id === senderId
+          ? duplicate.conversation.user_high_id
+          : duplicate.conversation.user_low_id;
+        return { ...duplicate, peerId };
+      }
+    }
+    throw error;
+  }
 }
 
 export async function listPrivateMessages(conversationId: string, viewerId: string, limit: number, before?: Date) {
@@ -151,9 +351,7 @@ export async function listPrivateMessages(conversationId: string, viewerId: stri
     beforeClause = `AND m.created_at < $${values.length}`;
   }
   const result = await query<PrivateMessageRow>(
-    `SELECT m.id, m.conversation_id, m.sender_id, u.username AS sender_username,
-            u.display_name AS sender_display_name, u.gender AS sender_gender,
-            m.message_type, m.text_content, m.created_at, m.expires_at
+    `SELECT ${PRIVATE_MESSAGE_SELECT}
      FROM private_messages m
      JOIN private_conversations c ON c.id = m.conversation_id
      JOIN users u ON u.id = m.sender_id
@@ -168,4 +366,22 @@ export async function listPrivateMessages(conversationId: string, viewerId: stri
     values
   );
   return result.rows;
+}
+
+export async function getLivePrivateVoice(conversationId: string, messageId: string, viewerId: string) {
+  const result = await query<PrivateMessageRow>(
+    `SELECT ${PRIVATE_MESSAGE_SELECT}
+     FROM private_messages m
+     JOIN private_conversations c ON c.id = m.conversation_id
+     JOIN users u ON u.id = m.sender_id
+     WHERE m.id = $1 AND m.conversation_id = $2
+       AND m.message_type = 'voice'
+       AND c.status = 'active'
+       AND (c.user_low_id = $3 OR c.user_high_id = $3)
+       AND m.deleted_at IS NULL
+       AND m.expires_at > now()
+     LIMIT 1`,
+    [messageId, conversationId, viewerId]
+  );
+  return result.rows[0] ?? null;
 }
