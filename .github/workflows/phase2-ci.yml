@@ -84,6 +84,7 @@ jobs:
           pnpm --filter @3aksa/api exec tsx --test
           tests/economy-wallet.integration.test.ts
           tests/economy-store.integration.test.ts
+          tests/reactions.integration.test.ts
 
       - name: Run legacy backend integration tests
         run: >-
