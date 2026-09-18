@@ -106,9 +106,16 @@ test('topups stay pending while store purchases and gifts settle atomically',asy
     assert.equal(cancel.statusCode,200,cancel.body);
     assert.equal(cancel.json<{topup:{status:string}}>().topup.status,'cancelled');
 
-    const approvedRequest=await app.inject({method:'POST',url:'/3aksa/api/wallet/topups',headers:auth(b.accessToken),payload:{amountMilli:3_000,paymentReference:'CI-APPROVE'}});
-    assert.equal(approvedRequest.statusCode,201,approvedRequest.body);
-    const approvedId=approvedRequest.json<{topup:{id:string}}>().topup.id;
+    const concurrentTopups=await Promise.all([
+      app.inject({method:'POST',url:'/3aksa/api/wallet/topups',headers:auth(b.accessToken),payload:{amountMilli:3_000,paymentReference:'CI-APPROVE-A'}}),
+      app.inject({method:'POST',url:'/3aksa/api/wallet/topups',headers:auth(b.accessToken),payload:{amountMilli:3_000,paymentReference:'CI-APPROVE-B'}})
+    ]);
+    const successfulTopups=concurrentTopups.filter((response)=>response.statusCode===201);
+    const rejectedTopups=concurrentTopups.filter((response)=>response.statusCode===409);
+    assert.equal(successfulTopups.length,1,concurrentTopups.map((response)=>response.body).join('\n'));
+    assert.equal(rejectedTopups.length,1,concurrentTopups.map((response)=>response.body).join('\n'));
+    assert.equal(rejectedTopups[0]!.json<{error:string}>().error,'TOPUP_REQUEST_ALREADY_PENDING');
+    const approvedId=successfulTopups[0]!.json<{topup:{id:string}}>().topup.id;
     const settled=await approveManualTopupRequest(approvedId,r.user.id);
     assert.equal(settled.replayed,false);
     assert.equal(settled.topup.status,'approved');
