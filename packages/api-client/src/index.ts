@@ -154,6 +154,28 @@ export type AppNotification = {
   expiresAt: string;
 };
 
+export type NotificationPreferences = {
+  pushEnabled: boolean;
+  categories: {
+    privateMessages: boolean;
+    messageRequests: boolean;
+    friendRequests: boolean;
+    friendAccepts: boolean;
+    roomAlerts: boolean;
+    walletEvents: boolean;
+    adminAlerts: boolean;
+    appUpdates: boolean;
+  };
+  sounds: {
+    messages: boolean;
+    interface: boolean;
+    rooms: boolean;
+    vibration: boolean;
+    muteAll: boolean;
+  };
+  updatedAt: string;
+};
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -500,11 +522,11 @@ export class ApiClient {
   }
 
   notificationPreferences() {
-    return this.request<{ preferences: unknown }>('/notifications/preferences');
+    return this.request<{ preferences: NotificationPreferences }>('/notifications/preferences');
   }
 
   updateNotificationPreferences(patch: Record<string, boolean>) {
-    return this.request<{ preferences: unknown }>('/notifications/preferences', {
+    return this.request<{ preferences: NotificationPreferences }>('/notifications/preferences', {
       method: 'PATCH', body: JSON.stringify(patch)
     });
   }
