@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { io as createSocket, type Socket } from 'socket.io-client';
@@ -135,7 +136,7 @@ test('realtime presence and 24-hour room text messaging work without permanent m
     const capacityRoomId = capacityRoomResponse.json<{ room: { id: string } }>().room.id;
 
     const ownerSocket = await connectSocket(baseUrl, ownerSession.accessToken);
-    const boySocket = await connectSocket(baseUrl, boySession.accessToken);
+    let boySocket = await connectSocket(baseUrl, boySession.accessToken);
     const girlSocket = await connectSocket(baseUrl, girlSession.accessToken);
     sockets.push(ownerSocket, boySocket, girlSocket);
 
@@ -149,6 +150,7 @@ test('realtime presence and 24-hour room text messaging work without permanent m
     assert.equal(boyJoined.ok, true);
     assert.equal(boyJoined.onlineCount, 2);
 
+    const clientMessageId = randomUUID();
     const deliveredPromise = onceEvent<{ message: { id: string; text: string; createdAt: string; expiresAt: string } }>(
       ownerSocket,
       'room:message'
@@ -156,11 +158,54 @@ test('realtime presence and 24-hour room text messaging work without permanent m
     const sent = await emitAck<{
       ok: boolean;
       message: { id: string; text: string; createdAt: string; expiresAt: string };
-    }>(boySocket, 'room:message:send', { roomId: boysRoomId, text: 'رسالة مؤقتة' });
+    }>(boySocket, 'room:message:send', {
+      roomId: boysRoomId,
+      text: 'رسالة مؤقتة',
+      clientMessageId
+    });
     assert.equal(sent.ok, true);
     assert.equal(sent.message.text, 'رسالة مؤقتة');
     assert.equal((await deliveredPromise).message.id, sent.message.id);
     assert.equal(new Date(sent.message.expiresAt).getTime() - new Date(sent.message.createdAt).getTime(), 86_400_000);
+
+    boySocket.disconnect();
+    boySocket = await connectSocket(baseUrl, boySession.accessToken);
+    sockets.push(boySocket);
+    assert.equal(
+      (await emitAck<{ ok: boolean }>(boySocket, 'room:join', { roomId: boysRoomId })).ok,
+      true
+    );
+
+    const retried = await emitAck<{ ok: boolean; message: { id: string } }>(
+      boySocket,
+      'room:message:send',
+      { roomId: boysRoomId, text: 'رسالة مؤقتة', clientMessageId }
+    );
+    assert.equal(retried.ok, true);
+    assert.equal(retried.message.id, sent.message.id);
+
+    for (let index = 0; index < 38; index += 1) {
+      const retry = await emitAck<{ ok: boolean }>(boySocket, 'room:message:send', {
+        roomId: boysRoomId,
+        text: 'رسالة مؤقتة',
+        clientMessageId
+      });
+      assert.equal(retry.ok, true);
+    }
+    const limited = await emitAck<{ ok: boolean; error?: string; retryAfterSeconds?: number }>(
+      boySocket,
+      'room:message:send',
+      { roomId: boysRoomId, text: 'رسالة مؤقتة', clientMessageId }
+    );
+    assert.equal(limited.ok, false);
+    assert.equal(limited.error, 'RATE_LIMITED');
+    assert.ok((limited.retryAfterSeconds ?? 0) > 0);
+
+    const idempotentCount = await query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM room_messages WHERE sender_id = $1 AND client_message_id = $2',
+      [boySession.user.id, clientMessageId]
+    );
+    assert.equal(idempotentCount.rows[0]?.count, '1');
 
     const history = await app.inject({
       method: 'GET',
