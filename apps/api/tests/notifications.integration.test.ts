@@ -245,7 +245,10 @@ test('notification inbox, encrypted push, social, private and economy events int
     });
     assert.equal(remove.statusCode,204,remove.body);
   }finally{
-    await cleanup();
-    await app.close();
+    try{
+      await cleanup();
+    }finally{
+      await app.close();
+    }
   }
 });
