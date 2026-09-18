@@ -17,6 +17,8 @@ export type RoomMessageRow = {
   media_duration_ms: number | null;
   client_message_id: string | null;
   _idempotentReplay?: boolean;
+  like_count?: string | number;
+  viewer_liked?: boolean;
   created_at: Date;
   expires_at: Date;
 };
@@ -45,6 +47,12 @@ export function roomMessageDto(message: RoomMessageRow) {
     clientMessageId: message.client_message_id,
     createdAt: message.created_at,
     expiresAt: message.expires_at,
+    reactions: {
+      like: {
+        count: Number(message.like_count ?? 0),
+        reacted: Boolean(message.viewer_liked)
+      }
+    },
     sender: {
       id: message.sender_id,
       username: message.sender_username,
@@ -188,7 +196,16 @@ export async function listRoomMessages(
   }
 
   const result = await query<RoomMessageRow>(
-    `SELECT ${MESSAGE_SELECT}
+    `SELECT ${MESSAGE_SELECT},
+            (SELECT count(*)::int
+             FROM message_reactions mr
+             WHERE mr.room_message_id = m.id AND mr.reaction_code = 'like') AS like_count,
+            EXISTS (
+              SELECT 1 FROM message_reactions mr
+              WHERE mr.room_message_id = m.id
+                AND mr.reaction_code = 'like'
+                AND mr.reactor_user_id = $2
+            ) AS viewer_liked
      FROM room_messages m
      JOIN users u ON u.id = m.sender_id
      WHERE m.room_id = $1
