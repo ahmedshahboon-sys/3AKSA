@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildApp } from '../src/app.js';
 import { query, withTransaction } from '../src/db.js';
+import { approveManualTopupRequest } from '../src/modules/economy/topups.js';
 
 const buyer={username:'store_buyer_ci',phone:'+218912345771',displayName:'مشتري المتجر'};
 const receiver={username:'store_receiver_ci',phone:'+218912345772',displayName:'مستلم الهدية'};
@@ -96,12 +97,23 @@ test('topups stay pending while store purchases and gifts settle atomically',asy
     assert.equal(cancel.statusCode,200,cancel.body);
     assert.equal(cancel.json<{topup:{status:string}}>().topup.status,'cancelled');
 
+    const approvedRequest=await app.inject({method:'POST',url:'/3aksa/api/wallet/topups',headers:auth(b.accessToken),payload:{amountMilli:3_000,paymentReference:'CI-APPROVE'}});
+    assert.equal(approvedRequest.statusCode,201,approvedRequest.body);
+    const approvedId=approvedRequest.json<{topup:{id:string}}>().topup.id;
+    const settled=await approveManualTopupRequest(approvedId,r.user.id);
+    assert.equal(settled.replayed,false);
+    assert.equal(settled.topup.status,'approved');
+    const settledReplay=await approveManualTopupRequest(approvedId,r.user.id);
+    assert.equal(settledReplay.replayed,true);
+    const walletAfterSettlement=await app.inject({method:'GET',url:'/3aksa/api/wallet',headers:auth(b.accessToken)});
+    assert.equal(walletAfterSettlement.json<{balanceMilli:number}>().balanceMilli,3_000);
+
     await query(
       `INSERT INTO store_items (id,code,item_type,name,description,price_milli,recipient_share_milli,consumable,status)
        VALUES ($1,$2,'frame','إطار CI','اختبار',2000,0,false,'active')`,
       [randomUUID(),frameCode]
     );
-    await seedBalance(b.user.id,10_000);
+    await seedBalance(b.user.id,7_000);
 
     const frameList=await app.inject({method:'GET',url:'/3aksa/api/store/items?type=frame',headers:auth(b.accessToken)});
     assert.equal(frameList.statusCode,200,frameList.body);
