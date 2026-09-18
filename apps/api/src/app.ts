@@ -8,6 +8,7 @@ import { registerHealthRoutes } from './modules/health/routes.js';
 import { registerMessageRoutes } from './modules/messages/routes.js';
 import { registerNearbyRoutes } from './modules/nearby/routes.js';
 import { registerPrivateRoutes } from './modules/private/routes.js';
+import { registerReactionRoutes } from './modules/reactions/routes.js';
 import { attachRealtime } from './modules/realtime/socket.js';
 import { registerRoomRoutes } from './modules/rooms/routes.js';
 import { registerSocialRoutes } from './modules/social/routes.js';
@@ -67,6 +68,10 @@ export async function buildApp() {
   });
 
   await registerPrivateRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerReactionRoutes(app, {
     basePath: apiBasePath
   });
 
