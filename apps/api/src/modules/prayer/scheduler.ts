@@ -2,6 +2,7 @@ import { env } from '../../config.js';
 import { query } from '../../db.js';
 import { getRedis } from '../../redis.js';
 import { prayerEvents, type PrayerName } from './events.js';
+import { createNotification } from '../notifications/service.js';
 import {
   actualPrayerNames,
   dateInTimeZone,
@@ -58,14 +59,29 @@ export async function runPrayerSchedulerTick(now = new Date()) {
       );
 
       for(const user of users.rows){
+        const message=prayerMessage(prayer as PrayerName);
         prayerEvents.emitDue({
           userId:user.user_id,
           prayer:prayer as PrayerName,
           referenceKey:ref.reference_key,
           referenceName:ref.name_ar,
           scheduledAt:item.instant,
-          message:prayerMessage(prayer as PrayerName),
+          message,
           soundEnabled:user.prayer_sound_enabled
+        });
+        await createNotification({
+          userId:user.user_id,
+          type:'prayer',
+          title:'تنبيه الصلاة',
+          body:message,
+          data:{
+            prayer,
+            referenceKey:ref.reference_key,
+            referenceName:ref.name_ar,
+            scheduledAt:item.instant
+          },
+          soundKey:user.prayer_sound_enabled?'prayer_alert':null,
+          emitRealtime:false
         });
         emitted+=1;
       }
