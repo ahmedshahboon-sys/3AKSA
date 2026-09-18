@@ -5,13 +5,13 @@ import { normalizeUsername } from '../auth/security.js';
 
 export const MILLI_PER_LYD = 1000;
 
-type WalletAccountRow = {
+export type WalletAccountRow = {
   id: string;
   owner_user_id: string | null;
   balance_milli: string;
 };
 
-type WalletTransactionRow = {
+export type WalletTransactionRow = {
   id: string;
   kind: 'transfer' | 'purchase' | 'gift' | 'manual_topup' | 'refund';
   initiator_user_id: string | null;
@@ -36,7 +36,7 @@ export type TransferResult = {
   replayed: boolean;
 };
 
-function asSafeInteger(value: string | number) {
+export function asSafeInteger(value: string | number) {
   const numeric = typeof value === 'number' ? value : Number(value);
   if (!Number.isSafeInteger(numeric)) throw new Error('WALLET_AMOUNT_OUT_OF_RANGE');
   return numeric;
@@ -50,7 +50,7 @@ export function formatLydFromMilli(amountMilli: number) {
   return `${sign}${whole}.${fraction}`;
 }
 
-async function ensureUserWallet(client: PoolClient, userId: string) {
+export async function ensureUserWallet(client: PoolClient, userId: string) {
   await client.query(
     `INSERT INTO wallet_accounts (
        id, owner_user_id, account_kind, system_code, allow_negative, balance_milli
@@ -68,7 +68,7 @@ async function ensureUserWallet(client: PoolClient, userId: string) {
   return account;
 }
 
-async function activeUserByUsername(client: PoolClient, username: string) {
+export async function activeUserByUsername(client: PoolClient, username: string) {
   const normalized = normalizeUsername(username);
   if (!normalized) return null;
   const result = await client.query<ActiveUserRow>(
