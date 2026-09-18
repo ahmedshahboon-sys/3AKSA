@@ -156,7 +156,7 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
-    this.retryAfterSeconds = retryAfterSeconds;
+    if (retryAfterSeconds !== undefined) this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -291,7 +291,10 @@ export class ApiClient {
   }
 
   joinCheck(roomId: string) {
-    return this.request<{ ok: boolean; room?: Room }>(`/rooms/${encodeURIComponent(roomId)}/join-check`, { method: 'POST' });
+    return this.request<{ allowed: true; roomId: string; maxUsers: number }>(
+      `/rooms/${encodeURIComponent(roomId)}/join-check`,
+      { method: 'POST' }
+    );
   }
 
   roomMessages(roomId: string, params: { limit?: number; before?: string } = {}) {
