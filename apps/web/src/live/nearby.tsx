@@ -35,12 +35,12 @@ export function LiveNearbyScreen(){
     try{
       const profile=resource.data?.profile;
       if(!profile?.nearbyEnabled)await api.updateProfile({nearbyEnabled:true});
-      const position=await new Promise<GeolocationPosition>((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:15000,maximumAge:60_000}));
+      const position=await new Promise<GeolocationPosition>((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,()=>reject(new Error('GEOLOCATION_DENIED')),{enableHighAccuracy:true,timeout:15000,maximumAge:60_000}));
       await api.updateNearbyLocation(position.coords.latitude,position.coords.longitude,Math.round(position.coords.accuracy));
       await api.resolvePrayerReference(position.coords.latitude,position.coords.longitude).catch(()=>undefined);
       await resource.reload();
     }catch(error){
-      setActionError(error instanceof GeolocationPositionError?'تعذر الوصول للموقع. راجع إذن الموقع في الجهاز.':readableError(error));
+      setActionError(readableError(error));
     }finally{setLocating(false);}
   }
 
