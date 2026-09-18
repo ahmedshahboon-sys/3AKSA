@@ -1,6 +1,7 @@
 import { env } from '../../config.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticateRequest } from '../auth/session.js';
+import { createNotification } from '../notifications/service.js';
 import {
   formatLydFromMilli,
   transferWalletBalance,
@@ -156,6 +157,20 @@ export async function registerEconomyRoutes(app: FastifyInstance, options: { bas
 
     try {
       const result = await transferWalletBalance(user.id, username, amountMilli!, key);
+      if (!result.replayed) {
+        await createNotification({
+          userId: result.recipient.id,
+          type: 'wallet_transfer',
+          title: 'تحويل رصيد وارد',
+          body: `${user.display_name} حول لك ${formatLydFromMilli(amountMilli!)} د.ل`,
+          data: {
+            transactionId: result.transaction.id,
+            amountMilli: amountMilli!,
+            username: user.username
+          },
+          soundKey: 'wallet_transfer'
+        });
+      }
       return reply.code(result.replayed ? 200 : 201).send({
         transaction: {
           id: result.transaction.id,
