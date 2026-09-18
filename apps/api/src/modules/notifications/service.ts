@@ -163,11 +163,12 @@ export async function registerPushSubscription(userId:string,input:
   let endpoint:string;
   let payload:WebPushPayload|AndroidPushPayload;
   if(input.platform==='web'){
-    const {endpoint,keys}=input.subscription;
-    if(!endpoint || endpoint.length>4096 || !endpoint.startsWith('https://'))throw new Error('INVALID_PUSH_SUBSCRIPTION');
+    const webEndpoint=input.subscription.endpoint;
+    const keys=input.subscription.keys;
+    if(!webEndpoint || webEndpoint.length>4096 || !webEndpoint.startsWith('https://'))throw new Error('INVALID_PUSH_SUBSCRIPTION');
     if(!keys?.p256dh || !keys.auth || keys.p256dh.length>1024 || keys.auth.length>512)throw new Error('INVALID_PUSH_SUBSCRIPTION');
-    payload={endpoint,keys:{p256dh:keys.p256dh,auth:keys.auth}};
-    endpoint=payload.endpoint;
+    payload={endpoint:webEndpoint,keys:{p256dh:keys.p256dh,auth:keys.auth}};
+    endpoint=webEndpoint;
   }else{
     const token=input.token.trim();
     if(token.length<20 || token.length>4096)throw new Error('INVALID_PUSH_TOKEN');
