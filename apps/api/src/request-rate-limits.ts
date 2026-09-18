@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { consumeRateLimit } from './rate-limit.js';
 
 function requestSubject(authorization: string | undefined, ip: string) {
   const token = authorization?.trim();
-  return token ? `auth:${token}` : `ip:${ip}`;
+  if (!token) return `ip:${ip}`;
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  return `auth:${tokenHash}`;
 }
 
 export function registerRequestRateLimits(app: FastifyInstance) {
@@ -26,6 +29,26 @@ export function registerRequestRateLimits(app: FastifyInstance) {
     } else if (request.method === 'POST' && route.endsWith('/private/messages')) {
       bucket = 'private-start-rest';
       limit = 20;
+      windowSeconds = 60;
+    } else if (request.method === 'POST' && route.endsWith('/wallet/transfers')) {
+      bucket = 'wallet-transfer';
+      limit = 20;
+      windowSeconds = 60;
+    } else if (request.method === 'POST' && route.endsWith('/wallet/topups')) {
+      bucket = 'wallet-topup-request';
+      limit = 5;
+      windowSeconds = 24 * 60 * 60;
+    } else if (request.method === 'POST' && route.endsWith('/store/purchases')) {
+      bucket = 'store-purchase';
+      limit = 20;
+      windowSeconds = 60;
+    } else if (request.method === 'POST' && route.endsWith('/gifts/send')) {
+      bucket = 'paid-gift';
+      limit = 20;
+      windowSeconds = 60;
+    } else if ((request.method === 'PUT' || request.method === 'DELETE') && route.endsWith('/reactions/like')) {
+      bucket = 'message-like';
+      limit = 60;
       windowSeconds = 60;
     }
 

@@ -29,6 +29,8 @@ export type PrivateMessageRow = {
   media_duration_ms: number | null;
   client_message_id: string | null;
   _idempotentReplay?: boolean;
+  like_count?: string | number;
+  viewer_liked?: boolean;
   created_at: Date;
   expires_at: Date;
 };
@@ -78,6 +80,15 @@ async function existingPrivateMessage(
   if (!clientMessageId) return null;
   const result = await query<PrivateMessageRow & PrivateConversationRow & { conversation_created_at: Date }>(
     `SELECT ${PRIVATE_MESSAGE_SELECT},
+            (SELECT count(*)::int
+             FROM message_reactions mr
+             WHERE mr.private_message_id = m.id AND mr.reaction_code = 'like') AS like_count,
+            EXISTS (
+              SELECT 1 FROM message_reactions mr
+              WHERE mr.private_message_id = m.id
+                AND mr.reaction_code = 'like'
+                AND mr.reactor_user_id = $1
+            ) AS viewer_liked,
             c.user_low_id, c.user_high_id, c.requested_by, c.status,
             c.accepted_at, c.created_at AS conversation_created_at, c.updated_at
      FROM private_messages m
@@ -207,6 +218,12 @@ export function privateMessageDto(message: PrivateMessageRow) {
     clientMessageId: message.client_message_id,
     createdAt: message.created_at,
     expiresAt: message.expires_at,
+    reactions: {
+      like: {
+        count: Number(message.like_count ?? 0),
+        reacted: Boolean(message.viewer_liked)
+      }
+    },
     sender: {
       id: message.sender_id,
       username: message.sender_username,
@@ -372,7 +389,16 @@ export async function listPrivateMessages(conversationId: string, viewerId: stri
     beforeClause = `AND m.created_at < $${values.length}`;
   }
   const result = await query<PrivateMessageRow>(
-    `SELECT ${PRIVATE_MESSAGE_SELECT}
+    `SELECT ${PRIVATE_MESSAGE_SELECT},
+            (SELECT count(*)::int
+             FROM message_reactions mr
+             WHERE mr.private_message_id = m.id AND mr.reaction_code = 'like') AS like_count,
+            EXISTS (
+              SELECT 1 FROM message_reactions mr
+              WHERE mr.private_message_id = m.id
+                AND mr.reaction_code = 'like'
+                AND mr.reactor_user_id = $2
+            ) AS viewer_liked
      FROM private_messages m
      JOIN private_conversations c ON c.id = m.conversation_id
      JOIN users u ON u.id = m.sender_id
