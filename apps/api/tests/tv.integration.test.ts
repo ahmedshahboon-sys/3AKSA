@@ -217,6 +217,14 @@ test('TV catalog management and room playback state enforce licensing and permis
     assert.ok(sport);
     assert.ok(kids);
 
+    const streamChangeWithoutRights=await app.inject({
+      method:'PATCH',
+      url:`/3aksa/api/tv/admin/channels/${sport!.id}`,
+      headers:auth(adminSession.accessToken),
+      payload:{streamUrl:'https://media.example.com/sport/new-master.m3u8'}
+    });
+    assert.equal(streamChangeWithoutRights.statusCode,400,streamChangeWithoutRights.body);
+    assert.equal(streamChangeWithoutRights.json<{error:string}>().error,'TV_RIGHTS_ATTESTATION_REQUIRED');
     const reorder=await app.inject({
       method:'PUT',
       url:'/3aksa/api/tv/admin/channels/order',
