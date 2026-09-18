@@ -27,6 +27,10 @@ export function registerRequestRateLimits(app: FastifyInstance) {
       bucket = 'private-start-rest';
       limit = 20;
       windowSeconds = 60;
+    } else if (request.method === 'POST' && route.endsWith('/wallet/transfers')) {
+      bucket = 'wallet-transfer';
+      limit = 20;
+      windowSeconds = 60;
     }
 
     if (!bucket) return;
