@@ -9,6 +9,7 @@ import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '..
 import { normalizeUsername } from '../auth/security.js';
 import { prayerEvents } from '../prayer/events.js';
 import { notificationEvents } from '../notifications/events.js';
+import { createNotification } from '../notifications/service.js';
 import { tvEvents } from '../tv/events.js';
 import { setRoomTvState } from '../tv/service.js';
 import {
@@ -500,6 +501,19 @@ export function attachRealtime(app: FastifyInstance) {
             }
           };
 
+          if (!result.message._idempotentReplay) {
+            await createNotification({
+              userId: target.id,
+              type: result.conversation.status === 'pending' ? 'message_request' : 'private_message',
+              title: result.conversation.status === 'pending' ? 'طلب مراسلة جديد' : 'رسالة خاصة',
+              body: result.conversation.status === 'pending'
+                ? `${user.display_name} يبي يراسلك`
+                : `${user.display_name} بعتلك رسالة جديدة`,
+              data: { conversationId: result.conversation.id, username: user.username },
+              soundKey: 'message_received'
+            });
+          }
+
           if (result.conversation.status === 'active') {
             joinedPrivateConversations.add(result.conversation.id);
             await socket.join(privateChannel(result.conversation.id));
@@ -633,6 +647,14 @@ export function attachRealtime(app: FastifyInstance) {
               userChannel(user.id),
               userChannel(result.peerId)
             ]).emit('private:message', { conversationId: result.conversation.id, message });
+            await createNotification({
+              userId: result.peerId,
+              type: 'private_message',
+              title: 'رسالة خاصة',
+              body: `${user.display_name} بعتلك رسالة جديدة`,
+              data: { conversationId: result.conversation.id, username: user.username },
+              soundKey: 'message_received'
+            });
           }
           safeAck(callback, {
             ok: true,
@@ -688,6 +710,14 @@ export function attachRealtime(app: FastifyInstance) {
               userChannel(user.id),
               userChannel(result.peerId)
             ]).emit('private:message', { conversationId: result.conversation.id, message });
+            await createNotification({
+              userId: result.peerId,
+              type: 'private_message',
+              title: 'رسالة خاصة',
+              body: `${user.display_name} بعتلك رسالة جديدة`,
+              data: { conversationId: result.conversation.id, username: user.username },
+              soundKey: 'message_received'
+            });
           }
           safeAck(callback, {
             ok: true,
