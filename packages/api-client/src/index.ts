@@ -307,6 +307,13 @@ export class ApiClient {
     return `${this.baseUrl}/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}/voice`;
   }
 
+  deleteRoomMessage(roomId: string, messageId: string) {
+    return this.request<void>(
+      `/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}`,
+      { method: 'DELETE' }
+    );
+  }
+
   profileMe() {
     return this.request<{ profile: Profile & { phone: string; nearbyEnabled: boolean; mutualSuggestionsEnabled: boolean } }>('/profile/me');
   }
