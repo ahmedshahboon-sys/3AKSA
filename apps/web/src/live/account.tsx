@@ -62,7 +62,7 @@ export function LiveAccountScreen(){
       {editing?<form className="live-form" onSubmit={saveProfile}><label><span>الاسم</span><input name="displayName" defaultValue={profile?.displayName||user?.displayName} minLength={2} maxLength={80} required/></label><label><span>النبذة</span><textarea name="bio" defaultValue={profile?.bio||''} maxLength={240} rows={3}/></label>{error?<div className="live-error">{error}</div>:null}<button className="primary-button small" disabled={busy} type="submit">حفظ</button></form>:null}
 
       <section className="balance-card"><div><span>الرصيد</span><strong>{resource.data?.wallet.balanceLyd??'0.000'} <small>د.ل</small></strong></div><div className="balance-actions"><Link className="link-reset" to="/wallet"><Icon name="wallet" size={18}/> المحفظة</Link><Link className="link-reset" to="/store"><Icon name="store" size={18}/> المتجر</Link></div></section>
-      <section className="account-shortcuts"><Link to="/notifications" className="link-reset"><Icon name="bell"/><span>الإشعارات</span></Link><Link to="/store" className="link-reset"><Icon name="store"/><span>مشترياتي</span></Link></section>
+      <section className="account-shortcuts"><Link to="/notifications" className="link-reset"><Icon name="bell"/><span>الإشعارات</span></Link><Link to="/store" className="link-reset"><Icon name="store"/><span>مشترياتي</span></Link><Link to="/account/prayer" className="link-reset"><span>🌙</span><span>الصلاة</span></Link></section>
 
       <SectionTitle title="الثيم"/>
       <div className="theme-grid">{themeOptions.map((option)=><button className={theme===option.value?'theme-option active':'theme-option'} key={option.value} onClick={()=>setTheme(option.value)} type="button">{option.label}</button>)}</div>
