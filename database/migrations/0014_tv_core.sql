@@ -95,6 +95,7 @@ BEGIN
   UPDATE rooms
      SET tv_enabled = false,
          tv_channel_id = NULL,
+         tv_updated_by = NULL,
          tv_updated_at = now()
    WHERE tv_channel_id = OLD.id;
   RETURN OLD;
@@ -114,6 +115,7 @@ BEGIN
   IF OLD.status = 'active' AND NEW.status <> 'active' THEN
     UPDATE rooms
        SET tv_enabled = false,
+           tv_updated_by = NULL,
            tv_updated_at = now()
      WHERE tv_channel_id = NEW.id
        AND tv_enabled = true;
