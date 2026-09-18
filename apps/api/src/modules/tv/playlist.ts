@@ -37,7 +37,7 @@ function privateIpv4(address: string) {
 }
 
 function normalizeHostname(hostname: string) {
-  let value = hostname.toLowerCase().replace(/.$/, '');
+  let value = hostname.toLowerCase().replace(/\.$/, '');
   if (value.startsWith('[') && value.endsWith(']')) value = value.slice(1, -1);
   const zoneIndex = value.indexOf('%');
   if (zoneIndex >= 0) value = value.slice(0, zoneIndex);
