@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../../db.js';
+import { normalizeUsername } from '../auth/security.js';
 import {
   activeUserByUsername,
   asSafeInteger,
@@ -54,6 +55,18 @@ async function itemByCode(client: PoolClient, code: string, activeOnly=true) {
      WHERE code=$1 ${activeOnly ? "AND status='active'" : ''}
      LIMIT 1`,
     [code]
+  );
+  return result.rows[0] ?? null;
+}
+
+async function itemById(client: PoolClient, id: string) {
+  const result=await client.query<StoreItemRow>(
+    `SELECT id,code,item_type,name,description,price_milli,recipient_share_milli,
+            consumable,asset_key,metadata,status
+     FROM store_items
+     WHERE id=$1
+     LIMIT 1`,
+    [id]
   );
   return result.rows[0] ?? null;
 }
@@ -136,14 +149,36 @@ export async function listEquipment(userId: string) {
   return result.rows.map((row)=>({ slot: row.slot, item: itemDto(row), equippedAt: row.equipped_at }));
 }
 
-function assertPurchaseReplay(tx: WalletTransactionRow, item: StoreItemRow) {
-  if(tx.kind!=='purchase' || tx.metadata.itemId!==item.id || tx.metadata.priceMilli!==asSafeInteger(item.price_milli)){
+function assertPurchaseReplay(tx: WalletTransactionRow, requestedCode: string) {
+  if(tx.kind!=='purchase' || tx.metadata.itemCode!==requestedCode){
     throw new Error('IDEMPOTENCY_KEY_REUSED');
   }
 }
 
+async function purchaseReplayResult(
+  client: PoolClient,
+  userId: string,
+  requestedCode: string,
+  tx: WalletTransactionRow
+) {
+  assertPurchaseReplay(tx, requestedCode);
+  const itemId=typeof tx.metadata.itemId==='string' ? tx.metadata.itemId : '';
+  const item=itemId ? await itemById(client,itemId) : null;
+  if(!item) throw new Error('STORE_ITEM_NOT_FOUND');
+  const account=await ensureUserWallet(client,userId);
+  return {
+    transaction:tx,
+    item:itemDto(item),
+    balanceMilli:asSafeInteger(account.balance_milli),
+    replayed:true
+  };
+}
+
 export async function purchaseStoreItem(userId: string, code: string, key: string) {
   return withTransaction(async (client)=>{
+    const prior=await transactionByKey(client,userId,key);
+    if(prior) return purchaseReplayResult(client,userId,code,prior);
+
     const item=await itemByCode(client,code,true);
     if(!item) throw new Error('STORE_ITEM_NOT_FOUND');
     if(item.consumable || item.item_type==='gift' || item.item_type==='reaction'){
@@ -156,11 +191,8 @@ export async function purchaseStoreItem(userId: string, code: string, key: strin
     const lockedUser=locked.rows.find((row)=>row.id===userAccount.id);
     if(!lockedUser) throw new Error('WALLET_NOT_FOUND');
 
-    const prior=await transactionByKey(client,userId,key);
-    if(prior){
-      assertPurchaseReplay(prior,item);
-      return { transaction: prior, item: itemDto(item), balanceMilli: asSafeInteger(lockedUser.balance_milli), replayed: true };
-    }
+    const racedPrior=await transactionByKey(client,userId,key);
+    if(racedPrior) return purchaseReplayResult(client,userId,code,racedPrior);
 
     const owned=await client.query<{ id: string }>(
       'SELECT id FROM user_entitlements WHERE user_id=$1 AND item_id=$2 LIMIT 1',
@@ -231,15 +263,49 @@ export async function equipOwnedItem(userId: string, code: string) {
   });
 }
 
-function assertGiftReplay(tx: WalletTransactionRow, item: StoreItemRow, recipientId: string) {
+function assertGiftReplay(
+  tx: WalletTransactionRow,
+  recipientUsername: string,
+  giftCode: string
+) {
+  const storedRecipient=typeof tx.metadata.recipientUsername==='string' ? tx.metadata.recipientUsername : '';
   if(
     tx.kind!=='gift' ||
-    tx.metadata.itemId!==item.id ||
-    tx.metadata.recipientUserId!==recipientId ||
-    tx.metadata.amountMilli!==asSafeInteger(item.price_milli)
+    tx.metadata.itemCode!==giftCode ||
+    normalizeUsername(storedRecipient)!==normalizeUsername(recipientUsername)
   ){
     throw new Error('IDEMPOTENCY_KEY_REUSED');
   }
+}
+
+async function giftReplayResult(
+  client: PoolClient,
+  senderUserId: string,
+  recipientUsername: string,
+  giftCode: string,
+  tx: WalletTransactionRow
+) {
+  assertGiftReplay(tx,recipientUsername,giftCode);
+  const itemId=typeof tx.metadata.itemId==='string' ? tx.metadata.itemId : '';
+  const recipientId=typeof tx.metadata.recipientUserId==='string' ? tx.metadata.recipientUserId : '';
+  const item=itemId ? await itemById(client,itemId) : null;
+  if(!item) throw new Error('GIFT_NOT_FOUND');
+  const recipientResult=recipientId
+    ? await client.query<{id:string;username:string;display_name:string}>(
+        'SELECT id,username,display_name FROM users WHERE id=$1 LIMIT 1',
+        [recipientId]
+      )
+    : null;
+  const recipient=recipientResult?.rows[0] ?? null;
+  if(!recipient) throw new Error('RECIPIENT_NOT_FOUND');
+  const sender=await ensureUserWallet(client,senderUserId);
+  return {
+    transaction:tx,
+    item:itemDto(item),
+    recipient,
+    balanceMilli:asSafeInteger(sender.balance_milli),
+    replayed:true
+  };
 }
 
 export async function sendPaidGift(
@@ -251,6 +317,9 @@ export async function sendPaidGift(
   contextId?: string
 ) {
   return withTransaction(async (client)=>{
+    const prior=await transactionByKey(client,senderUserId,key);
+    if(prior) return giftReplayResult(client,senderUserId,recipientUsername,giftCode,prior);
+
     const recipient=await activeUserByUsername(client,recipientUsername);
     if(!recipient) throw new Error('RECIPIENT_NOT_FOUND');
     if(recipient.id===senderUserId) throw new Error('CANNOT_GIFT_SELF');
@@ -277,11 +346,8 @@ export async function sendPaidGift(
     const senderLocked=locked.rows.find((row)=>row.id===sender.id);
     if(!senderLocked) throw new Error('WALLET_NOT_FOUND');
 
-    const prior=await transactionByKey(client,senderUserId,key);
-    if(prior){
-      assertGiftReplay(prior,item,recipient.id);
-      return { transaction:prior,item:itemDto(item),recipient,balanceMilli:asSafeInteger(senderLocked.balance_milli),replayed:true };
-    }
+    const racedPrior=await transactionByKey(client,senderUserId,key);
+    if(racedPrior) return giftReplayResult(client,senderUserId,recipientUsername,giftCode,racedPrior);
 
     const balance=asSafeInteger(senderLocked.balance_milli);
     if(balance<priceMilli) throw new Error('INSUFFICIENT_BALANCE');
