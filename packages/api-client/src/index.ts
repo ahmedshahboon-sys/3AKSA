@@ -53,17 +53,27 @@ export type NearbyPerson = {
   distanceLabel: string;
 };
 
+export type PrivatePeer = {
+  id: string;
+  username: string;
+  displayName: string;
+  gender: Gender;
+};
+
 export type PrivateConversation = {
   id: string;
-  peer: {
-    id: string;
-    username: string;
-    displayName: string;
-    gender: Gender;
-  };
+  peer: PrivatePeer;
   lastText?: string | null;
   lastMessageAt?: string | null;
   updatedAt?: string;
+};
+
+export type PrivateMessageRequest = {
+  id: string;
+  peer: PrivatePeer;
+  text: string | null;
+  expiresAt: string | null;
+  createdAt: string;
 };
 
 export type ChatMessage = {
