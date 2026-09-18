@@ -327,6 +327,10 @@ export class ApiClient {
     return this.request<{ profile: Profile & { phone: string; nearbyEnabled: boolean; mutualSuggestionsEnabled: boolean } }>('/profile/me');
   }
 
+  profile(username: string) {
+    return this.request<{ profile: Profile }>(`/profiles/${encodeURIComponent(username)}`);
+  }
+
   updateProfile(input: { displayName?: string; bio?: string|null; nearbyEnabled?: boolean; mutualSuggestionsEnabled?: boolean }) {
     return this.request<{ profile: Profile }>('/profile/me', { method: 'PATCH', body: JSON.stringify(input) });
   }
