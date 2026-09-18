@@ -85,4 +85,3 @@ jobs:
           tests/economy-wallet.integration.test.ts
           tests/economy-store.integration.test.ts
           tests/reactions.integration.test.ts
-          tests/reactions.integration.test.ts
