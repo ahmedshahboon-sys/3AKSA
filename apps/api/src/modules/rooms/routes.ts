@@ -3,6 +3,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { query, withTransaction } from '../../db.js';
 import { authenticateRequest, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
+import { tvEvents } from '../tv/events.js';
+import { roomTvBroadcastState } from '../tv/service.js';
 
 type RoomVisibility = 'public' | 'private';
 type RoomGenderPolicy = 'everyone' | 'boys' | 'girls';
@@ -235,6 +237,7 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
     if (!validGenderPolicy(genderPolicy)) return reply.code(400).send({ error: 'INVALID_GENDER_POLICY' });
     if (!validMaxUsers(maxUsers)) return reply.code(400).send({ error: 'INVALID_MAX_USERS' });
     if (typeof tvEnabled !== 'boolean') return reply.code(400).send({ error: 'INVALID_TV_SETTING' });
+    if (tvEnabled) return reply.code(400).send({ error: 'TV_CHANNEL_REQUIRED' });
 
     const id = randomUUID();
     const result = await query<{ id: string }>(
@@ -275,6 +278,19 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
     if (genderPolicy !== undefined && !validGenderPolicy(genderPolicy)) return reply.code(400).send({ error: 'INVALID_GENDER_POLICY' });
     if (maxUsers !== undefined && !validMaxUsers(maxUsers)) return reply.code(400).send({ error: 'INVALID_MAX_USERS' });
     if (tvEnabled !== undefined && typeof tvEnabled !== 'boolean') return reply.code(400).send({ error: 'INVALID_TV_SETTING' });
+    if (tvEnabled === true) {
+      const selected = await query(
+        `SELECT 1
+         FROM rooms r
+         JOIN tv_channels c ON c.id = r.tv_channel_id
+         WHERE r.id = $1 AND c.status = 'active' AND c.rights_confirmed = true
+         LIMIT 1`,
+        [request.params.roomId]
+      );
+      if ((selected.rowCount ?? 0) === 0) {
+        return reply.code(400).send({ error: 'TV_CHANNEL_REQUIRED' });
+      }
+    }
     if (status !== undefined && status !== 'active' && status !== 'closed') return reply.code(400).send({ error: 'INVALID_ROOM_STATUS' });
 
     if (
@@ -307,6 +323,14 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
         status ?? null
       ]
     );
+    if (tvEnabled !== undefined) {
+      await query(
+        `UPDATE rooms SET tv_updated_by = $2, tv_updated_at = now() WHERE id = $1`,
+        [request.params.roomId, auth.id]
+      );
+      const state = await roomTvBroadcastState(request.params.roomId);
+      if (state) tvEvents.emitRoomState({ roomId: request.params.roomId, state });
+    }
     const room = await lookupRoom(request.params.roomId, auth.id);
     return reply.send({ room: roomDto(room!, auth) });
   });
