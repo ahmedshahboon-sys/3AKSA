@@ -176,12 +176,13 @@ test('realtime presence and 24-hour room text messaging work without permanent m
       true
     );
 
-    const retried = await emitAck<{ ok: boolean; message: { id: string } }>(
+    const retried = await emitAck<{ ok: boolean; replayed?: boolean; message: { id: string } }>(
       boySocket,
       'room:message:send',
       { roomId: boysRoomId, text: 'رسالة مؤقتة', clientMessageId }
     );
     assert.equal(retried.ok, true);
+    assert.equal(retried.replayed, true);
     assert.equal(retried.message.id, sent.message.id);
 
     for (let index = 0; index < 38; index += 1) {
