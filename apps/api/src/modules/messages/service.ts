@@ -16,6 +16,7 @@ export type RoomMessageRow = {
   media_bytes: number | null;
   media_duration_ms: number | null;
   client_message_id: string | null;
+  _idempotentReplay?: boolean;
   created_at: Date;
   expires_at: Date;
 };
@@ -78,7 +79,7 @@ async function existingRoomMessage(
   ) {
     throw new Error('CLIENT_MESSAGE_ID_REUSED');
   }
-  return row;
+  return { ...row, _idempotentReplay: true };
 }
 
 export async function createRoomTextMessage(
@@ -110,7 +111,7 @@ export async function createRoomTextMessage(
        JOIN users u ON u.id = i.sender_id`,
       [randomUUID(), roomId, senderId, text, clientMessageId ?? null]
     );
-    return result.rows[0]!;
+    return { ...result.rows[0]!, _idempotentReplay: false };
   } catch (error) {
     if ((error as { code?: string }).code === '23505' && clientMessageId) {
       const duplicate = await existingRoomMessage(roomId, senderId, clientMessageId, 'text', text);
@@ -163,7 +164,7 @@ export async function createRoomVoiceMessage(
         clientMessageId ?? null
       ]
     );
-    return result.rows[0]!;
+    return { ...result.rows[0]!, _idempotentReplay: false };
   } catch (error) {
     await deleteStoredVoice(stored.storageKey);
     if ((error as { code?: string }).code === '23505' && clientMessageId) {
