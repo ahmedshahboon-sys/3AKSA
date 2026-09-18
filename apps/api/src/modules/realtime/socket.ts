@@ -4,10 +4,12 @@ import { env } from '../../config.js';
 import { query } from '../../db.js';
 import { closeRedis } from '../../redis.js';
 import { consumeRateLimit } from '../../rate-limit.js';
+import { normalizeVoiceBinary } from '../../storage.js';
 import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
 import {
   createRoomTextMessage,
+  createRoomVoiceMessage,
   roomMessageDto,
   softDeleteRoomMessage
 } from '../messages/service.js';
@@ -15,6 +17,7 @@ import {
   areBlocked,
   privateMessageDto,
   sendActivePrivateText,
+  sendActivePrivateVoice,
   startPrivateText,
   type PrivateConversationRow
 } from '../private/service.js';
@@ -129,7 +132,8 @@ export function attachRealtime(app: FastifyInstance) {
   const io = new SocketIOServer(app.server, {
     path: env.SOCKET_PATH,
     serveClient: false,
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    maxHttpBufferSize: 4 * 1024 * 1024
   });
 
   async function emitMessageRespectingBlocks(roomId: string, senderId: string, message: unknown) {
@@ -227,10 +231,14 @@ export function attachRealtime(app: FastifyInstance) {
 
     socket.on(
       'room:message:send',
-      async (payload: { roomId?: string; text?: string } | undefined, callback?: Ack) => {
+      async (payload: { roomId?: string; text?: string; clientMessageId?: string } | undefined, callback?: Ack) => {
         try {
           const roomId = payload?.roomId?.trim() ?? '';
           const text = payload?.text?.trim() ?? '';
+          const clientMessageId = payload?.clientMessageId?.trim();
+          if (clientMessageId && !UUID_RE.test(clientMessageId)) {
+            return safeAck(callback, { ok: false, error: 'INVALID_CLIENT_MESSAGE_ID' });
+          }
           if (!joinedRooms.has(roomId)) return safeAck(callback, { ok: false, error: 'ROOM_NOT_JOINED' });
           if (text.length < 1 || text.length > 2000) {
             return safeAck(callback, { ok: false, error: 'INVALID_MESSAGE_TEXT' });
@@ -245,13 +253,66 @@ export function attachRealtime(app: FastifyInstance) {
           const presence = await tryJoinRoomPresence(room.id, user.id, socket.id, room.max_users);
           if (!presence.allowed) return safeAck(callback, { ok: false, error: 'ROOM_FULL' });
 
-          const message = await createRoomTextMessage(room.id, user.id, text);
+          const message = await createRoomTextMessage(room.id, user.id, text, clientMessageId);
           const dto = roomMessageDto(message);
           await emitMessageRespectingBlocks(room.id, user.id, dto);
           safeAck(callback, { ok: true, message: dto });
         } catch (error) {
           socket.data.lastRealtimeError = error instanceof Error ? error.message : 'unknown';
           safeAck(callback, { ok: false, error: 'MESSAGE_SEND_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
+      'room:voice:send',
+      async (
+        payload: { roomId?: string; audio?: unknown; durationMs?: number; clientMessageId?: string } | undefined,
+        callback?: Ack
+      ) => {
+        try {
+          const roomId = payload?.roomId?.trim() ?? '';
+          const clientMessageId = payload?.clientMessageId?.trim();
+          if (clientMessageId && !UUID_RE.test(clientMessageId)) {
+            return safeAck(callback, { ok: false, error: 'INVALID_CLIENT_MESSAGE_ID' });
+          }
+          if (!joinedRooms.has(roomId)) return safeAck(callback, { ok: false, error: 'ROOM_NOT_JOINED' });
+          if (!(await allowRealtime('room-voice', 8, 60, callback))) return;
+
+          const audio = normalizeVoiceBinary(payload?.audio);
+          if (!audio) return safeAck(callback, { ok: false, error: 'VOICE_FORMAT_INVALID' });
+          const durationMs = Number(payload?.durationMs);
+
+          const room = await getRoomPolicy(roomId, user.id);
+          if (!room) return safeAck(callback, { ok: false, error: 'ROOM_NOT_FOUND' });
+          const policyError = roomPolicyError(room, user);
+          if (policyError) return safeAck(callback, { ok: false, error: policyError });
+
+          const presence = await tryJoinRoomPresence(room.id, user.id, socket.id, room.max_users);
+          if (!presence.allowed) return safeAck(callback, { ok: false, error: 'ROOM_FULL' });
+
+          const message = await createRoomVoiceMessage(
+            room.id,
+            user.id,
+            audio,
+            durationMs,
+            clientMessageId
+          );
+          const dto = roomMessageDto(message);
+          await emitMessageRespectingBlocks(room.id, user.id, dto);
+          safeAck(callback, { ok: true, message: dto });
+        } catch (error) {
+          const code = error instanceof Error ? error.message : '';
+          if (
+            code === 'VOICE_SIZE_INVALID' ||
+            code === 'VOICE_DURATION_INVALID' ||
+            code === 'VOICE_FORMAT_INVALID' ||
+            code === 'STORAGE_DRIVER_UNSUPPORTED'
+          ) {
+            return safeAck(callback, { ok: false, error: code });
+          }
+          socket.data.lastRealtimeError = code || 'unknown';
+          safeAck(callback, { ok: false, error: 'VOICE_SEND_FAILED' });
         }
       }
     );
@@ -279,10 +340,14 @@ export function attachRealtime(app: FastifyInstance) {
 
     socket.on(
       'private:message:start',
-      async (payload: { username?: string; text?: string } | undefined, callback?: Ack) => {
+      async (payload: { username?: string; text?: string; clientMessageId?: string } | undefined, callback?: Ack) => {
         try {
           const username = payload?.username?.trim() ?? '';
           const text = payload?.text?.trim() ?? '';
+          const clientMessageId = payload?.clientMessageId?.trim();
+          if (clientMessageId && !UUID_RE.test(clientMessageId)) {
+            return safeAck(callback, { ok: false, error: 'INVALID_CLIENT_MESSAGE_ID' });
+          }
           if (text.length < 1 || text.length > 2000) {
             return safeAck(callback, { ok: false, error: 'INVALID_MESSAGE_TEXT' });
           }
@@ -291,7 +356,7 @@ export function attachRealtime(app: FastifyInstance) {
           if (!target) return safeAck(callback, { ok: false, error: 'USER_NOT_FOUND' });
           if (target.id === user.id) return safeAck(callback, { ok: false, error: 'CANNOT_MESSAGE_SELF' });
 
-          const result = await startPrivateText(user.id, target.id, text);
+          const result = await startPrivateText(user.id, target.id, text, clientMessageId);
           const message = privateMessageDto(result.message);
           const conversation = {
             id: result.conversation.id,
@@ -363,10 +428,17 @@ export function attachRealtime(app: FastifyInstance) {
 
     socket.on(
       'private:message:send',
-      async (payload: { conversationId?: string; text?: string } | undefined, callback?: Ack) => {
+      async (
+        payload: { conversationId?: string; text?: string; clientMessageId?: string } | undefined,
+        callback?: Ack
+      ) => {
         try {
           const conversationId = payload?.conversationId?.trim() ?? '';
           const text = payload?.text?.trim() ?? '';
+          const clientMessageId = payload?.clientMessageId?.trim();
+          if (clientMessageId && !UUID_RE.test(clientMessageId)) {
+            return safeAck(callback, { ok: false, error: 'INVALID_CLIENT_MESSAGE_ID' });
+          }
           if (!joinedPrivateConversations.has(conversationId)) {
             return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_JOINED' });
           }
@@ -375,7 +447,7 @@ export function attachRealtime(app: FastifyInstance) {
           }
           if (!(await allowRealtime('private-text', 30, 10, callback))) return;
 
-          const result = await sendActivePrivateText(conversationId, user.id, text);
+          const result = await sendActivePrivateText(conversationId, user.id, text, clientMessageId);
           const message = privateMessageDto(result.message);
           io.to([
             privateChannel(result.conversation.id),
@@ -391,6 +463,61 @@ export function attachRealtime(app: FastifyInstance) {
           }
           socket.data.lastRealtimeError = code || 'unknown';
           safeAck(callback, { ok: false, error: 'PRIVATE_MESSAGE_SEND_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
+      'private:voice:send',
+      async (
+        payload: { conversationId?: string; audio?: unknown; durationMs?: number; clientMessageId?: string } | undefined,
+        callback?: Ack
+      ) => {
+        try {
+          const conversationId = payload?.conversationId?.trim() ?? '';
+          const clientMessageId = payload?.clientMessageId?.trim();
+          if (clientMessageId && !UUID_RE.test(clientMessageId)) {
+            return safeAck(callback, { ok: false, error: 'INVALID_CLIENT_MESSAGE_ID' });
+          }
+          if (!joinedPrivateConversations.has(conversationId)) {
+            return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_JOINED' });
+          }
+          if (!(await allowRealtime('private-voice', 8, 60, callback))) return;
+
+          const audio = normalizeVoiceBinary(payload?.audio);
+          if (!audio) return safeAck(callback, { ok: false, error: 'VOICE_FORMAT_INVALID' });
+          const durationMs = Number(payload?.durationMs);
+
+          const result = await sendActivePrivateVoice(
+            conversationId,
+            user.id,
+            audio,
+            durationMs,
+            clientMessageId
+          );
+          const message = privateMessageDto(result.message);
+          io.to([
+            privateChannel(result.conversation.id),
+            userChannel(user.id),
+            userChannel(result.peerId)
+          ]).emit('private:message', { conversationId: result.conversation.id, message });
+          safeAck(callback, { ok: true, message });
+        } catch (error) {
+          const code = error instanceof Error ? error.message : '';
+          if (
+            code === 'VOICE_SIZE_INVALID' ||
+            code === 'VOICE_DURATION_INVALID' ||
+            code === 'VOICE_FORMAT_INVALID' ||
+            code === 'STORAGE_DRIVER_UNSUPPORTED' ||
+            code === 'RELATIONSHIP_BLOCKED'
+          ) {
+            return safeAck(callback, { ok: false, error: code });
+          }
+          if (code === 'CONVERSATION_NOT_ACTIVE') {
+            return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_FOUND' });
+          }
+          socket.data.lastRealtimeError = code || 'unknown';
+          safeAck(callback, { ok: false, error: 'PRIVATE_VOICE_SEND_FAILED' });
         }
       }
     );
