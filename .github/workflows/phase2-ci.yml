@@ -95,6 +95,9 @@ jobs:
       - name: Run prayer integration tests
         run: pnpm --filter @3aksa/api exec tsx --test tests/prayer.integration.test.ts
 
+      - name: Run notification integration tests
+        run: pnpm --filter @3aksa/api exec tsx --test tests/notifications.integration.test.ts
+
       - name: Run legacy backend integration tests
         shell: bash
         run: |
