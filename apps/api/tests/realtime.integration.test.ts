@@ -168,6 +168,29 @@ test('realtime presence and 24-hour room text messaging work without permanent m
     assert.equal((await deliveredPromise).message.id, sent.message.id);
     assert.equal(new Date(sent.message.expiresAt).getTime() - new Date(sent.message.createdAt).getTime(), 86_400_000);
 
+    const reactionEventPromise = onceEvent<{
+      roomId: string;
+      messageId: string;
+      reaction: 'like';
+      count: number;
+    }>(ownerSocket, 'room:reaction');
+    const reactionAck = await emitAck<{
+      ok: boolean;
+      like: { count: number; reacted: boolean };
+    }>(boySocket, 'room:reaction:like:set', {
+      roomId: boysRoomId,
+      messageId: sent.message.id,
+      active: true
+    });
+    assert.equal(reactionAck.ok, true);
+    assert.deepEqual(reactionAck.like, { count: 1, reacted: true });
+    assert.deepEqual(await reactionEventPromise, {
+      roomId: boysRoomId,
+      messageId: sent.message.id,
+      reaction: 'like',
+      count: 1
+    });
+
     boySocket.disconnect();
     boySocket = await connectSocket(baseUrl, boySession.accessToken);
     sockets.push(boySocket);
@@ -176,7 +199,14 @@ test('realtime presence and 24-hour room text messaging work without permanent m
       true
     );
 
-    const retried = await emitAck<{ ok: boolean; replayed?: boolean; message: { id: string } }>(
+    const retried = await emitAck<{
+      ok: boolean;
+      replayed?: boolean;
+      message: {
+        id: string;
+        reactions: { like: { count: number; reacted: boolean } };
+      };
+    }>(
       boySocket,
       'room:message:send',
       { roomId: boysRoomId, text: 'رسالة مؤقتة', clientMessageId }
@@ -184,6 +214,7 @@ test('realtime presence and 24-hour room text messaging work without permanent m
     assert.equal(retried.ok, true);
     assert.equal(retried.replayed, true);
     assert.equal(retried.message.id, sent.message.id);
+    assert.deepEqual(retried.message.reactions.like, { count: 1, reacted: true });
 
     for (let index = 0; index < 38; index += 1) {
       const retry = await emitAck<{ ok: boolean }>(boySocket, 'room:message:send', {
@@ -214,7 +245,14 @@ test('realtime presence and 24-hour room text messaging work without permanent m
       headers: auth(ownerSession.accessToken)
     });
     assert.equal(history.statusCode, 200, history.body);
-    assert.equal(history.json<{ messages: Array<{ id: string }> }>().messages[0]?.id, sent.message.id);
+    const historyMessage = history.json<{
+      messages: Array<{
+        id: string;
+        reactions: { like: { count: number; reacted: boolean } };
+      }>;
+    }>().messages[0];
+    assert.equal(historyMessage?.id, sent.message.id);
+    assert.deepEqual(historyMessage?.reactions.like, { count: 1, reacted: false });
 
     await query(
       "UPDATE room_messages SET created_at = now() - interval '25 hours', expires_at = now() - interval '1 hour' WHERE id = $1",
