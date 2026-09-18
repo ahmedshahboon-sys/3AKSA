@@ -7,6 +7,8 @@ import { consumeRateLimit } from '../../rate-limit.js';
 import { normalizeVoiceBinary } from '../../storage.js';
 import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
+import { tvEvents } from '../tv/events.js';
+import { setRoomTvState } from '../tv/service.js';
 import {
   createRoomTextMessage,
   createRoomVoiceMessage,
@@ -140,6 +142,13 @@ export function attachRealtime(app: FastifyInstance) {
     serveClient: false,
     transports: ['websocket', 'polling'],
     maxHttpBufferSize: 4 * 1024 * 1024
+  });
+
+  const unsubscribeTv = tvEvents.onRoomState(({ roomId, state }) => {
+    io.to(roomChannel(roomId)).emit('room:tv-state', {
+      roomId,
+      tv: state
+    });
   });
 
   async function emitMessageRespectingBlocks(roomId: string, senderId: string, message: unknown) {
@@ -367,6 +376,54 @@ export function attachRealtime(app: FastifyInstance) {
           }
           socket.data.lastRealtimeError = code || 'unknown';
           safeAck(callback, { ok: false, error: 'REACTION_UPDATE_FAILED' });
+        }
+      }
+    );
+
+    socket.on(
+      'room:tv:set',
+      async (
+        payload: { roomId?: string; enabled?: boolean; channelId?: string | null } | undefined,
+        callback?: Ack
+      ) => {
+        try {
+          const roomId = payload?.roomId?.trim() ?? '';
+          const channelId = payload?.channelId === null
+            ? null
+            : payload?.channelId?.trim();
+
+          if (!UUID_RE.test(roomId)) {
+            return safeAck(callback, { ok: false, error: 'ROOM_NOT_FOUND' });
+          }
+          if (!joinedRooms.has(roomId)) {
+            return safeAck(callback, { ok: false, error: 'ROOM_NOT_JOINED' });
+          }
+          if (payload?.enabled !== undefined && typeof payload.enabled !== 'boolean') {
+            return safeAck(callback, { ok: false, error: 'INVALID_TV_SETTING' });
+          }
+          if (channelId !== undefined && channelId !== null && !UUID_RE.test(channelId)) {
+            return safeAck(callback, { ok: false, error: 'INVALID_TV_CHANNEL_ID' });
+          }
+          if (!(await allowRealtime('room-tv-control', 60, 60, callback))) return;
+
+          const tv = await setRoomTvState(user, roomId, {
+            enabled: payload?.enabled,
+            channelId
+          });
+          safeAck(callback, { ok: true, tv });
+        } catch (error) {
+          const code = error instanceof Error ? error.message : '';
+          if (
+            code === 'ROOM_NOT_FOUND' ||
+            code === 'ROOM_TV_MANAGER_REQUIRED' ||
+            code === 'TV_CHANNEL_NOT_AVAILABLE' ||
+            code === 'TV_CHANNEL_REQUIRED' ||
+            code === 'NO_TV_STATE_CHANGES'
+          ) {
+            return safeAck(callback, { ok: false, error: code });
+          }
+          socket.data.lastRealtimeError = code || 'unknown';
+          safeAck(callback, { ok: false, error: 'TV_UPDATE_FAILED' });
         }
       }
     );
@@ -678,6 +735,7 @@ export function attachRealtime(app: FastifyInstance) {
   });
 
   app.addHook('onClose', async () => {
+    unsubscribeTv();
     await new Promise<void>((resolve) => io.close(() => resolve()));
     await closeRedis();
   });
