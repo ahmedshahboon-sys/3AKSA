@@ -39,6 +39,15 @@ async function cleanup(){
     await query('DELETE FROM users WHERE id=ANY($1::uuid[])',[userIds]);
   }
   await query('DELETE FROM store_items WHERE code=$1',[frameCode]);
+  await query(
+    `UPDATE store_items
+     SET price_milli=1000,
+         recipient_share_milli=500,
+         status='active',
+         metadata='{"currency":"LYD","platformShareMilli":500}'::jsonb,
+         updated_at=now()
+     WHERE code='rose'`
+  );
 }
 
 async function register(app:Awaited<ReturnType<typeof buildApp>>,user:typeof buyer){
@@ -142,6 +151,13 @@ test('topups stay pending while store purchases and gifts settle atomically',asy
     assert.equal(purchaseBody.balanceMilli,8_000);
     assert.equal(purchaseBody.replayed,false);
 
+    await query(
+      `UPDATE store_items
+       SET price_milli=9000,status='hidden',updated_at=now()
+       WHERE code=$1`,
+      [frameCode]
+    );
+
     const purchaseReplay=await app.inject({method:'POST',url:'/3aksa/api/store/purchases',headers:{...auth(b.accessToken),'idempotency-key':purchaseKey},payload:{code:frameCode}});
     assert.equal(purchaseReplay.statusCode,200,purchaseReplay.body);
     const purchaseReplayBody=purchaseReplay.json<{transaction:{id:string};balanceMilli:number;replayed:boolean}>();
@@ -155,6 +171,7 @@ test('topups stay pending while store purchases and gifts settle atomically',asy
     assert.equal(equip.statusCode,200,equip.body);
     assert.equal(equip.json<{equipment:{slot:string;item:{code:string}}}>().equipment.slot,'frame');
     assert.equal(equip.json<{equipment:{slot:string;item:{code:string}}}>().equipment.item.code,frameCode);
+    await query("UPDATE store_items SET status='active',updated_at=now() WHERE code=$1",[frameCode]);
 
     const giftKey=randomUUID();
     const gift=await app.inject({method:'POST',url:'/3aksa/api/gifts/send',headers:{...auth(b.accessToken),'idempotency-key':giftKey},payload:{
@@ -165,11 +182,25 @@ test('topups stay pending while store purchases and gifts settle atomically',asy
     assert.equal(giftBody.balanceMilli,7_000);
     assert.equal(giftBody.replayed,false);
 
+    await query(
+      `UPDATE store_items
+       SET price_milli=2000,recipient_share_milli=1000,status='hidden',updated_at=now()
+       WHERE code='rose'`
+    );
+
     const giftReplay=await app.inject({method:'POST',url:'/3aksa/api/gifts/send',headers:{...auth(b.accessToken),'idempotency-key':giftKey},payload:{
       recipientUsername:receiver.username,giftCode:'rose'
     }});
     assert.equal(giftReplay.statusCode,200,giftReplay.body);
     assert.equal(giftReplay.json<{transaction:{id:string}}>().transaction.id,giftBody.transaction.id);
+    assert.equal(giftReplay.json<{balanceMilli:number;replayed:boolean}>().balanceMilli,7_000);
+    assert.equal(giftReplay.json<{balanceMilli:number;replayed:boolean}>().replayed,true);
+    await query(
+      `UPDATE store_items
+       SET price_milli=1000,recipient_share_milli=500,status='active',
+           metadata='{"currency":"LYD","platformShareMilli":500}'::jsonb,updated_at=now()
+       WHERE code='rose'`
+    );
 
     const receiverWallet=await app.inject({method:'GET',url:'/3aksa/api/wallet',headers:auth(r.accessToken)});
     assert.equal(receiverWallet.json<{balanceMilli:number}>().balanceMilli,500);
