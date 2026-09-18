@@ -2,20 +2,16 @@ import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Icon } from './icons';
 import { AuthScreen } from './auth';
 import { useSession } from './session';
-import {
-  AccountScreen,
-  ConversationScreen,
-  HomeScreen,
-  NearbyScreen,
-  NotificationsScreen,
-  OfflineScreen,
-  PrivateScreen,
-  RoomChatScreen,
-  RoomsScreen,
-  StoreScreen,
-  TvScreen,
-  WalletScreen,
-} from './screens';
+import { OfflineScreen } from './screens';
+import { LiveHomeScreen } from './live/home';
+import { LiveRoomsScreen, LiveRoomChatScreen } from './live/rooms';
+import { LiveNearbyScreen } from './live/nearby';
+import { LivePrivateScreen, LiveConversationScreen, LiveNewConversationScreen } from './live/private';
+import { LiveAccountScreen, LiveWalletScreen, LiveStoreScreen } from './live/account';
+import { LiveTvScreen } from './live/tv';
+import { LiveNotificationsScreen } from './live/notifications';
+import { LivePrayerSettingsScreen } from './live/prayer';
+import { LiveRealtimeEffects } from './live/realtimeEffects';
 
 const navItems = [
   { label: 'الرئيسية', path: '/', icon: 'home' as const },
@@ -40,24 +36,27 @@ function BottomNavigation() {
 
 function AppShell() {
   const location = useLocation();
-  const isImmersive = /^\/rooms\/[^/]+$/.test(location.pathname) || /^\/private\/[^/]+$/.test(location.pathname);
+  const isImmersive = location.pathname.startsWith('/rooms/') || location.pathname.startsWith('/private/');
   return (
     <div className={isImmersive ? 'app-shell immersive-shell' : 'app-shell'}>
       <Routes>
-        <Route path="/" element={<HomeScreen />} />
-        <Route path="/rooms" element={<RoomsScreen />} />
-        <Route path="/rooms/:roomId" element={<RoomChatScreen />} />
-        <Route path="/nearby" element={<NearbyScreen />} />
-        <Route path="/private" element={<PrivateScreen />} />
-        <Route path="/private/:userId" element={<ConversationScreen />} />
-        <Route path="/account" element={<AccountScreen />} />
-        <Route path="/wallet" element={<WalletScreen />} />
-        <Route path="/store" element={<StoreScreen />} />
-        <Route path="/tv" element={<TvScreen />} />
-        <Route path="/notifications" element={<NotificationsScreen />} />
+        <Route path="/" element={<LiveHomeScreen />} />
+        <Route path="/rooms" element={<LiveRoomsScreen />} />
+        <Route path="/rooms/:roomId" element={<LiveRoomChatScreen />} />
+        <Route path="/nearby" element={<LiveNearbyScreen />} />
+        <Route path="/private" element={<LivePrivateScreen />} />
+        <Route path="/private/new/:username" element={<LiveNewConversationScreen />} />
+        <Route path="/private/:conversationId" element={<LiveConversationScreen />} />
+        <Route path="/account" element={<LiveAccountScreen />} />
+        <Route path="/account/prayer" element={<LivePrayerSettingsScreen />} />
+        <Route path="/wallet" element={<LiveWalletScreen />} />
+        <Route path="/store" element={<LiveStoreScreen />} />
+        <Route path="/tv" element={<LiveTvScreen />} />
+        <Route path="/notifications" element={<LiveNotificationsScreen />} />
         <Route path="/offline" element={<OfflineScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <LiveRealtimeEffects />
       {isImmersive ? null : <BottomNavigation />}
     </div>
   );
