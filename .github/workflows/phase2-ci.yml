@@ -79,5 +79,21 @@ jobs:
       - name: Apply PostgreSQL migrations
         run: pnpm --filter @3aksa/api db:migrate
 
-      - name: Run backend integration tests
-        run: pnpm --filter @3aksa/api test
+      - name: Run economy integration tests
+        run: >-
+          pnpm --filter @3aksa/api exec tsx --test
+          tests/economy-wallet.integration.test.ts
+          tests/economy-store.integration.test.ts
+
+      - name: Run legacy backend integration tests
+        run: >-
+          pnpm --filter @3aksa/api exec tsx --test
+          tests/auth.integration.test.ts
+          tests/nearby.integration.test.ts
+          tests/private.integration.test.ts
+          tests/rate-limit.integration.test.ts
+          tests/realtime.integration.test.ts
+          tests/rooms.integration.test.ts
+          tests/social-suggestions.integration.test.ts
+          tests/social.integration.test.ts
+          tests/voice.integration.test.ts
