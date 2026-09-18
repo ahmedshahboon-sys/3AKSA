@@ -33,6 +33,7 @@ type ActiveUserRow = {
 export type TransferResult = {
   transaction: WalletTransactionRow;
   senderBalanceMilli: number;
+  recipient: { id: string; username: string; displayName: string };
   replayed: boolean;
 };
 
@@ -184,6 +185,7 @@ export async function transferWalletBalance(
         return {
           transaction: prior.rows[0],
           senderBalanceMilli: asSafeInteger(sender.balance_milli),
+          recipient: { id: recipient.id, username: recipient.username, displayName: recipient.display_name },
           replayed: true
         };
       }
@@ -214,6 +216,7 @@ export async function transferWalletBalance(
         return {
           transaction: racedPrior.rows[0],
           senderBalanceMilli: asSafeInteger(senderLocked.balance_milli),
+          recipient: { id: recipient.id, username: recipient.username, displayName: recipient.display_name },
           replayed: true
         };
       }
@@ -264,6 +267,7 @@ export async function transferWalletBalance(
       return {
         transaction: inserted.rows[0]!,
         senderBalanceMilli: senderBalance - amountMilli,
+        recipient: { id: recipient.id, username: recipient.username, displayName: recipient.display_name },
         replayed: false
       };
     });
@@ -285,6 +289,7 @@ export async function transferWalletBalance(
         return {
           transaction: prior,
           senderBalanceMilli: summary.balanceMilli,
+          recipient: { id: recipient.id, username: recipient.username, displayName: recipient.display_name },
           replayed: true
         };
       }
