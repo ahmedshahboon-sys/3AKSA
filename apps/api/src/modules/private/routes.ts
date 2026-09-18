@@ -3,6 +3,7 @@ import { query, withTransaction } from '../../db.js';
 import { openStoredVoice } from '../../storage.js';
 import { authenticateRequest } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
+import { createNotification } from '../notifications/service.js';
 import {
   areBlocked,
   getLivePrivateVoice,
@@ -69,6 +70,16 @@ export async function registerPrivateRoutes(app: FastifyInstance, options: { bas
 
     try {
       const result = await startPrivateText(user.id, target.id, text);
+      await createNotification({
+        userId: target.id,
+        type: result.conversation.status === 'pending' ? 'message_request' : 'private_message',
+        title: result.conversation.status === 'pending' ? 'طلب مراسلة جديد' : 'رسالة خاصة',
+        body: result.conversation.status === 'pending'
+          ? `${user.display_name} يبي يراسلك`
+          : `${user.display_name} بعتلك رسالة جديدة`,
+        data: { conversationId: result.conversation.id, username: user.username },
+        soundKey: 'message_received'
+      });
       return reply.code(201).send({
         conversation: {
           id: result.conversation.id,
