@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AppNotification, NotificationPreferences } from '@3aksa/api-client';
 import { api, realtime } from '../runtime';
+import { initializeNativeAppLinks, initializeNativePush, nativeImpact } from '../native';
 
 type Toast={title:string;body:string;target:string;duration:number}|null;
 
@@ -41,7 +42,7 @@ async function feedback(soundKey:string|null,prayerSound=false){
   const group=soundGroup(soundKey);
   const soundAllowed=prayerSound||(group==='messages'?prefs.sounds.messages:group==='rooms'?prefs.sounds.rooms:prefs.sounds.interface);
   if(soundAllowed)playTone();
-  if(prefs.sounds.vibration&&'vibrate' in navigator)navigator.vibrate(35);
+  if(prefs.sounds.vibration)void nativeImpact('light');
 }
 
 export function LiveRealtimeEffects(){
@@ -49,6 +50,8 @@ export function LiveRealtimeEffects(){
   const [toast,setToast]=useState<Toast>(null);
   const timer=useRef<number|null>(null);
   useEffect(()=>{
+    void initializeNativePush((path)=>navigate(path));
+    void initializeNativeAppLinks((path)=>navigate(path));
     function show(next:NonNullable<Toast>){
       if(timer.current)window.clearTimeout(timer.current);
       setToast(next);timer.current=window.setTimeout(()=>setToast(null),next.duration);
