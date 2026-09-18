@@ -44,14 +44,13 @@ export type Profile = {
 };
 
 export type NearbyPerson = {
-  id?: string;
+  id: string;
   username: string;
   displayName: string;
   gender: Gender;
-  distance?: string;
-  distanceBucket?: string;
-  approximateDistanceKm?: number;
-  mutualFriends?: number;
+  bio: string | null;
+  distanceKmApprox: number;
+  distanceLabel: string;
 };
 
 export type PrivateConversation = {
@@ -342,7 +341,7 @@ export class ApiClient {
   }
 
   nearby(gender?: 'boy'|'girl') {
-    return this.request<{ people?: NearbyPerson[]; nearby?: NearbyPerson[] }>(withQuery('/nearby', { gender }));
+    return this.request<{ nearby: NearbyPerson[] }>(withQuery('/nearby', { gender }));
   }
 
   privateConversations() {
