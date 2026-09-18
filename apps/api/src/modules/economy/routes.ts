@@ -6,11 +6,18 @@ import {
   walletHistory,
   walletSummary
 } from './service.js';
+import {
+  cancelManualTopupRequest,
+  createManualTopupRequest,
+  listManualTopupRequests
+} from './topups.js';
 
 type TransferBody = {
   username?: string;
   amountMilli?: number;
 };
+
+type TopupBody = { amountMilli?: number; paymentReference?: string; note?: string };
 
 type HistoryQuery = {
   limit?: string;
@@ -63,6 +70,59 @@ export async function registerEconomyRoutes(app: FastifyInstance, options: { bas
       : await walletHistory(user.id, limit);
     return reply.send({ history });
   });
+
+
+  app.post<{ Body: TopupBody }>(`${walletPrefix}/topups`, async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return;
+
+    const amountMilli = request.body.amountMilli;
+    const paymentReference = request.body.paymentReference?.trim() || null;
+    const note = request.body.note?.trim() || null;
+    if (!Number.isSafeInteger(amountMilli) || (amountMilli ?? 0) <= 0) {
+      return reply.code(400).send({ error: 'INVALID_TOPUP_AMOUNT' });
+    }
+    if ((paymentReference?.length ?? 0) > 160 || (note?.length ?? 0) > 500) {
+      return reply.code(400).send({ error: 'INVALID_TOPUP_DETAILS' });
+    }
+
+    try {
+      const topup = await createManualTopupRequest(
+        user.id,
+        amountMilli!,
+        paymentReference,
+        note
+      );
+      return reply.code(201).send({ topup });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      if (code === 'TOPUP_REQUEST_ALREADY_PENDING') {
+        return reply.code(409).send({ error: code });
+      }
+      if (code === 'INVALID_TOPUP_AMOUNT') return reply.code(400).send({ error: code });
+      throw error;
+    }
+  });
+
+  app.get(`${walletPrefix}/topups`, async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (!user) return;
+    return reply.send({ topups: await listManualTopupRequests(user.id) });
+  });
+
+  app.delete<{ Params: { requestId: string } }>(
+    `${walletPrefix}/topups/:requestId`,
+    async (request, reply) => {
+      const user = await requireUser(request, reply);
+      if (!user) return;
+      if (!UUID_RE.test(request.params.requestId)) {
+        return reply.code(404).send({ error: 'TOPUP_REQUEST_NOT_FOUND' });
+      }
+      const cancelled = await cancelManualTopupRequest(user.id, request.params.requestId);
+      if (!cancelled) return reply.code(404).send({ error: 'TOPUP_REQUEST_NOT_FOUND' });
+      return reply.send({ topup: cancelled });
+    }
+  );
 
   app.post<{ Body: TransferBody }>(`${walletPrefix}/transfers`, async (request, reply) => {
     const user = await requireUser(request, reply);
