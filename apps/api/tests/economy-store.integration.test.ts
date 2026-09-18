@@ -80,6 +80,15 @@ test('topups stay pending while store purchases and gifts settle atomically',asy
       assert.equal(wallet.json<{balanceMilli:number}>().balanceMilli,0);
     }
 
+    const topupInstructions=await app.inject({method:'GET',url:'/3aksa/api/wallet/topup-instructions',headers:auth(b.accessToken)});
+    assert.equal(topupInstructions.statusCode,200,topupInstructions.body);
+    const instructions=topupInstructions.json<{method:string;contactNumber:string;currency:string;manualReviewRequired:boolean;requestStatus:string}>();
+    assert.equal(instructions.method,'whatsapp');
+    assert.equal(instructions.contactNumber,'0912992050');
+    assert.equal(instructions.currency,'LYD');
+    assert.equal(instructions.manualReviewRequired,true);
+    assert.equal(instructions.requestStatus,'pending_until_review');
+
     const topup=await app.inject({method:'POST',url:'/3aksa/api/wallet/topups',headers:auth(b.accessToken),payload:{
       amountMilli:20_000,paymentReference:'CI-REF-001',note:'اختبار طلب شحن'
     }});
