@@ -48,9 +48,9 @@ async function cleanup(){
   );
 
   await query('DELETE FROM private_messages WHERE sender_id=ANY($1::uuid[])',[ids]);
-  await query('DELETE FROM private_conversations WHERE user_low_id=ANY($1::uuid[]) OR user_high_id=ANY($1::uuid[])',[ids,ids]);
-  await query('DELETE FROM friend_requests WHERE sender_id=ANY($1::uuid[]) OR receiver_id=ANY($1::uuid[])',[ids,ids]);
-  await query('DELETE FROM friendships WHERE user_low_id=ANY($1::uuid[]) OR user_high_id=ANY($1::uuid[])',[ids,ids]);
+  await query('DELETE FROM private_conversations WHERE user_low_id=ANY($1::uuid[]) OR user_high_id=ANY($1::uuid[])',[ids]);
+  await query('DELETE FROM friend_requests WHERE sender_id=ANY($1::uuid[]) OR receiver_id=ANY($1::uuid[])',[ids]);
+  await query('DELETE FROM friendships WHERE user_low_id=ANY($1::uuid[]) OR user_high_id=ANY($1::uuid[])',[ids]);
   await query('DELETE FROM push_subscriptions WHERE user_id=ANY($1::uuid[])',[ids]);
   await query('DELETE FROM notifications WHERE user_id=ANY($1::uuid[])',[ids]);
   await query('DELETE FROM user_notification_preferences WHERE user_id=ANY($1::uuid[])',[ids]);
