@@ -190,6 +190,31 @@ export class ApiClient {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
+  private requestUrl(path:string){
+    return `${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  }
+
+  async blob(path:string):Promise<Blob>{
+    const token=this.getAccessToken();
+    const headers=new Headers();
+    if(token)headers.set('Authorization',`Bearer ${token}`);
+    let response:Response;
+    try{
+      response=await this.fetchImpl(this.requestUrl(path),{headers});
+    }catch{
+      throw new ApiError(0,'NETWORK_ERROR');
+    }
+    if(!response.ok){
+      let code=`HTTP_${response.status}`;
+      try{
+        const payload=await response.json() as {error?:unknown};
+        if(typeof payload.error==='string')code=payload.error;
+      }catch{/* binary/non-json error */}
+      throw new ApiError(response.status,code);
+    }
+    return response.blob();
+  }
+
   async request<T>(path: string, init: RequestInit & { idempotencyKey?: string } = {}): Promise<T> {
     const token = this.getAccessToken();
     const headers = new Headers(init.headers);
@@ -201,7 +226,7 @@ export class ApiClient {
 
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`, {
+      response = await this.fetchImpl(this.requestUrl(path), {
         ...init,
         headers
       });
