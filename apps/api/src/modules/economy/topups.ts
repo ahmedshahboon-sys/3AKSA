@@ -56,14 +56,21 @@ export async function createManualTopupRequest(
   );
   if(pending.rows[0]) throw new Error('TOPUP_REQUEST_ALREADY_PENDING');
 
-  const result=await query<TopupRow>(
-    `INSERT INTO manual_topup_requests (
-       id,user_id,amount_milli,payment_reference,note
-     ) VALUES ($1,$2,$3,$4,$5)
-     RETURNING id,user_id,amount_milli,status,payment_reference,note,reviewed_by,reviewed_at,ledger_transaction_id,created_at,updated_at`,
-    [randomUUID(),userId,amountMilli,paymentReference ?? null,note ?? null]
-  );
-  return dto(result.rows[0]!);
+  try {
+    const result=await query<TopupRow>(
+      `INSERT INTO manual_topup_requests (
+         id,user_id,amount_milli,payment_reference,note
+       ) VALUES ($1,$2,$3,$4,$5)
+       RETURNING id,user_id,amount_milli,status,payment_reference,note,reviewed_by,reviewed_at,ledger_transaction_id,created_at,updated_at`,
+      [randomUUID(),userId,amountMilli,paymentReference ?? null,note ?? null]
+    );
+    return dto(result.rows[0]!);
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      throw new Error('TOPUP_REQUEST_ALREADY_PENDING');
+    }
+    throw error;
+  }
 }
 
 export async function listManualTopupRequests(userId: string, limit=30) {
