@@ -12,6 +12,7 @@ import { LiveTvScreen } from './live/tv';
 import { LiveNotificationsScreen } from './live/notifications';
 import { LivePrayerSettingsScreen } from './live/prayer';
 import { LiveRealtimeEffects } from './live/realtimeEffects';
+import { PwaLifecycle } from './live/pwaLifecycle';
 
 const navItems = [
   { label: 'الرئيسية', path: '/', icon: 'home' as const },
@@ -57,6 +58,7 @@ function AppShell() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <LiveRealtimeEffects />
+      <PwaLifecycle />
       {isImmersive ? null : <BottomNavigation />}
     </div>
   );
