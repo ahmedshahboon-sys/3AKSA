@@ -255,10 +255,16 @@ export function attachRealtime(app: FastifyInstance) {
 
           const message = await createRoomTextMessage(room.id, user.id, text, clientMessageId);
           const dto = roomMessageDto(message);
-          await emitMessageRespectingBlocks(room.id, user.id, dto);
-          safeAck(callback, { ok: true, message: dto });
+          if (!message._idempotentReplay) {
+            await emitMessageRespectingBlocks(room.id, user.id, dto);
+          }
+          safeAck(callback, { ok: true, message: dto, replayed: Boolean(message._idempotentReplay) });
         } catch (error) {
-          socket.data.lastRealtimeError = error instanceof Error ? error.message : 'unknown';
+          const code = error instanceof Error ? error.message : '';
+          if (code === 'CLIENT_MESSAGE_ID_REUSED') {
+            return safeAck(callback, { ok: false, error: code });
+          }
+          socket.data.lastRealtimeError = code || 'unknown';
           safeAck(callback, { ok: false, error: 'MESSAGE_SEND_FAILED' });
         }
       }
@@ -299,11 +305,14 @@ export function attachRealtime(app: FastifyInstance) {
             clientMessageId
           );
           const dto = roomMessageDto(message);
-          await emitMessageRespectingBlocks(room.id, user.id, dto);
-          safeAck(callback, { ok: true, message: dto });
+          if (!message._idempotentReplay) {
+            await emitMessageRespectingBlocks(room.id, user.id, dto);
+          }
+          safeAck(callback, { ok: true, message: dto, replayed: Boolean(message._idempotentReplay) });
         } catch (error) {
           const code = error instanceof Error ? error.message : '';
           if (
+            code === 'CLIENT_MESSAGE_ID_REUSED' ||
             code === 'VOICE_SIZE_INVALID' ||
             code === 'VOICE_DURATION_INVALID' ||
             code === 'VOICE_FORMAT_INVALID' ||
@@ -372,12 +381,14 @@ export function attachRealtime(app: FastifyInstance) {
           if (result.conversation.status === 'active') {
             joinedPrivateConversations.add(result.conversation.id);
             await socket.join(privateChannel(result.conversation.id));
-            io.to([
-              privateChannel(result.conversation.id),
-              userChannel(user.id),
-              userChannel(target.id)
-            ]).emit('private:message', { conversationId: result.conversation.id, message });
-          } else {
+            if (!result.message._idempotentReplay) {
+              io.to([
+                privateChannel(result.conversation.id),
+                userChannel(user.id),
+                userChannel(target.id)
+              ]).emit('private:message', { conversationId: result.conversation.id, message });
+            }
+          } else if (!result.message._idempotentReplay) {
             io.to(userChannel(target.id)).emit('private:request', {
               conversationId: result.conversation.id,
               peer: {
@@ -389,10 +400,16 @@ export function attachRealtime(app: FastifyInstance) {
               message
             });
           }
-          safeAck(callback, { ok: true, conversation, message });
+          safeAck(callback, {
+            ok: true,
+            conversation,
+            message,
+            replayed: Boolean(result.message._idempotentReplay)
+          });
         } catch (error) {
           const code = error instanceof Error ? error.message : '';
           if (
+            code === 'CLIENT_MESSAGE_ID_REUSED' ||
             code === 'RELATIONSHIP_BLOCKED' ||
             code === 'MESSAGE_REQUEST_PENDING' ||
             code === 'INCOMING_REQUEST_PENDING' ||
@@ -449,15 +466,23 @@ export function attachRealtime(app: FastifyInstance) {
 
           const result = await sendActivePrivateText(conversationId, user.id, text, clientMessageId);
           const message = privateMessageDto(result.message);
-          io.to([
-            privateChannel(result.conversation.id),
-            userChannel(user.id),
-            userChannel(result.peerId)
-          ]).emit('private:message', { conversationId: result.conversation.id, message });
-          safeAck(callback, { ok: true, message });
+          if (!result.message._idempotentReplay) {
+            io.to([
+              privateChannel(result.conversation.id),
+              userChannel(user.id),
+              userChannel(result.peerId)
+            ]).emit('private:message', { conversationId: result.conversation.id, message });
+          }
+          safeAck(callback, {
+            ok: true,
+            message,
+            replayed: Boolean(result.message._idempotentReplay)
+          });
         } catch (error) {
           const code = error instanceof Error ? error.message : '';
-          if (code === 'RELATIONSHIP_BLOCKED') return safeAck(callback, { ok: false, error: code });
+          if (code === 'RELATIONSHIP_BLOCKED' || code === 'CLIENT_MESSAGE_ID_REUSED') {
+            return safeAck(callback, { ok: false, error: code });
+          }
           if (code === 'CONVERSATION_NOT_ACTIVE') {
             return safeAck(callback, { ok: false, error: 'CONVERSATION_NOT_FOUND' });
           }
@@ -496,15 +521,22 @@ export function attachRealtime(app: FastifyInstance) {
             clientMessageId
           );
           const message = privateMessageDto(result.message);
-          io.to([
-            privateChannel(result.conversation.id),
-            userChannel(user.id),
-            userChannel(result.peerId)
-          ]).emit('private:message', { conversationId: result.conversation.id, message });
-          safeAck(callback, { ok: true, message });
+          if (!result.message._idempotentReplay) {
+            io.to([
+              privateChannel(result.conversation.id),
+              userChannel(user.id),
+              userChannel(result.peerId)
+            ]).emit('private:message', { conversationId: result.conversation.id, message });
+          }
+          safeAck(callback, {
+            ok: true,
+            message,
+            replayed: Boolean(result.message._idempotentReplay)
+          });
         } catch (error) {
           const code = error instanceof Error ? error.message : '';
           if (
+            code === 'CLIENT_MESSAGE_ID_REUSED' ||
             code === 'VOICE_SIZE_INVALID' ||
             code === 'VOICE_DURATION_INVALID' ||
             code === 'VOICE_FORMAT_INVALID' ||
