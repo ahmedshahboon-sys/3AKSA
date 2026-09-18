@@ -13,6 +13,7 @@ import { attachRealtime } from './modules/realtime/socket.js';
 import { registerRoomRoutes } from './modules/rooms/routes.js';
 import { registerSocialRoutes } from './modules/social/routes.js';
 import { registerSuggestionRoutes } from './modules/social/suggestions.js';
+import { registerTvRoutes } from './modules/tv/routes.js';
 import { registerRequestRateLimits } from './request-rate-limits.js';
 
 export async function buildApp() {
@@ -72,6 +73,10 @@ export async function buildApp() {
   });
 
   await registerReactionRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerTvRoutes(app, {
     basePath: apiBasePath
   });
 
