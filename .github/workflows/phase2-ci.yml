@@ -92,6 +92,9 @@ jobs:
           tests/tv.integration.test.ts
           tests/tv-realtime.integration.test.ts
 
+      - name: Run prayer integration tests
+        run: pnpm --filter @3aksa/api exec tsx --test tests/prayer.integration.test.ts
+
       - name: Run legacy backend integration tests
         shell: bash
         run: |
