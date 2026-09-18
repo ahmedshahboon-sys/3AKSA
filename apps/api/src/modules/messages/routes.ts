@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { query } from '../../db.js';
+import { openStoredVoice } from '../../storage.js';
 import { authenticateRequest, type AuthenticatedUser } from '../auth/session.js';
-import { listRoomMessages, roomMessageDto, softDeleteRoomMessage } from './service.js';
+import { getLiveRoomVoice, listRoomMessages, roomMessageDto, softDeleteRoomMessage } from './service.js';
 
 type RoomAccessRow = {
   id: string;
@@ -77,6 +78,29 @@ export async function registerMessageRoutes(app: FastifyInstance, options: { bas
       const historyOptions = before ? { before, limit } : { limit };
       const messages = await listRoomMessages(room.id, user.id, historyOptions);
       return reply.send({ messages: messages.map(roomMessageDto) });
+    }
+  );
+
+  app.get<{ Params: { roomId: string; messageId: string } }>(
+    `${prefix}/:roomId/messages/:messageId/voice`,
+    async (request, reply) => {
+      const user = await requireUser(request, reply);
+      if (!user) return;
+      const room = await roomAccess(request.params.roomId, user.id);
+      if (!room) return reply.code(404).send({ error: 'ROOM_NOT_FOUND' });
+      const error = accessError(room, user);
+      if (error) return reply.code(error === 'ROOM_NOT_FOUND' ? 404 : 403).send({ error });
+
+      const message = await getLiveRoomVoice(request.params.messageId, room.id, user.id);
+      if (!message?.storage_key || !message.media_mime) {
+        return reply.code(404).send({ error: 'VOICE_NOT_FOUND' });
+      }
+
+      reply.header('Cache-Control', 'private, no-store');
+      reply.header('X-Content-Type-Options', 'nosniff');
+      if (message.media_bytes) reply.header('Content-Length', String(message.media_bytes));
+      reply.type(message.media_mime);
+      return reply.send(openStoredVoice(message.storage_key));
     }
   );
 
