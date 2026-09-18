@@ -247,6 +247,24 @@ test('TV catalog management and room playback state enforce licensing and permis
     assert.equal(manualChannels[1]?.id,sport!.id);
     assert.equal(manualChannels[2]?.id,news.id);
 
+    const partialReorder=await app.inject({
+      method:'PUT',
+      url:'/3aksa/api/tv/admin/channels/order',
+      headers:auth(adminSession.accessToken),
+      payload:{channelIds:[news.id]}
+    });
+    assert.equal(partialReorder.statusCode,200,partialReorder.body);
+    assert.equal(partialReorder.json<{reordered:number}>().reordered,3);
+
+    const partialManual=await app.inject({
+      method:'GET',
+      url:'/3aksa/api/tv/channels?sort=manual',
+      headers:auth(viewerSession.accessToken)
+    });
+    const partialChannels=partialManual.json<{channels:Array<{id:string;sortOrder:number}>}>().channels;
+    assert.deepEqual(partialChannels.map((channel)=>channel.id),[news.id,kids!.id,sport!.id]);
+    assert.deepEqual(partialChannels.map((channel)=>channel.sortOrder),[0,1,2]);
+
     const alphabetical=await app.inject({
       method:'GET',
       url:'/3aksa/api/tv/channels?sort=alphabetical',
