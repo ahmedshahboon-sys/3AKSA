@@ -77,6 +77,18 @@ export function registerRequestRateLimits(app: FastifyInstance) {
       bucket = 'prayer-admin-settings';
       limit = 20;
       windowSeconds = 60 * 60;
+    } else if (request.method === 'POST' && route.endsWith('/notifications/push/subscriptions')) {
+      bucket = 'push-subscription-register';
+      limit = 20;
+      windowSeconds = 60 * 60;
+    } else if (request.method === 'DELETE' && route.endsWith('/notifications/push/subscriptions/:id')) {
+      bucket = 'push-subscription-delete';
+      limit = 30;
+      windowSeconds = 60 * 60;
+    } else if (request.method === 'PATCH' && route.endsWith('/notifications/preferences')) {
+      bucket = 'notification-preferences';
+      limit = 30;
+      windowSeconds = 60;
     }
 
     if (!bucket) return;
