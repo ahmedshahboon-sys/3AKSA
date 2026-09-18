@@ -145,12 +145,13 @@ test('voice notes are private, expiring, validated and idempotent in rooms and p
       86_400_000
     );
 
-    const duplicateRoom = await emitAck<{ ok: boolean; message: { id: string } }>(
+    const duplicateRoom = await emitAck<{ ok: boolean; replayed?: boolean; message: { id: string } }>(
       peerSocket,
       'room:voice:send',
       { roomId, audio: WEBM_SAMPLE, durationMs: 1_200, clientMessageId: roomClientMessageId }
     );
     assert.equal(duplicateRoom.ok, true);
+    assert.equal(duplicateRoom.replayed, true);
     assert.equal(duplicateRoom.message.id, sentRoom.message.id);
 
     const roomCount = await query<{ count: string }>(
@@ -158,6 +159,31 @@ test('voice notes are private, expiring, validated and idempotent in rooms and p
       [peerSession.user.id, roomClientMessageId]
     );
     assert.equal(roomCount.rows[0]?.count, '1');
+
+    const boundaryRoomResponse = await app.inject({
+      method: 'POST',
+      url: '/3aksa/api/rooms',
+      headers: auth(ownerSession.accessToken),
+      payload: { name: 'غرفة فصل المفاتيح', genderPolicy: 'everyone', maxUsers: 10 }
+    });
+    assert.equal(boundaryRoomResponse.statusCode, 201, boundaryRoomResponse.body);
+    const boundaryRoomId = boundaryRoomResponse.json<{ room: { id: string } }>().room.id;
+    assert.equal(
+      (await emitAck<{ ok: boolean }>(peerSocket, 'room:join', { roomId: boundaryRoomId })).ok,
+      true
+    );
+    const crossRoomReuse = await emitAck<{ ok: boolean; error?: string }>(
+      peerSocket,
+      'room:voice:send',
+      {
+        roomId: boundaryRoomId,
+        audio: WEBM_SAMPLE,
+        durationMs: 1_200,
+        clientMessageId: roomClientMessageId
+      }
+    );
+    assert.equal(crossRoomReuse.ok, false);
+    assert.equal(crossRoomReuse.error, 'CLIENT_MESSAGE_ID_REUSED');
 
     const roomPlayback = await app.inject({
       method: 'GET',
@@ -235,7 +261,7 @@ test('voice notes are private, expiring, validated and idempotent in rooms and p
     assert.equal(sentPrivate.message.clientMessageId, privateClientMessageId);
     assert.equal(sentPrivate.message.voice.mime, 'audio/webm');
 
-    const duplicatePrivate = await emitAck<{ ok: boolean; message: { id: string } }>(
+    const duplicatePrivate = await emitAck<{ ok: boolean; replayed?: boolean; message: { id: string } }>(
       ownerSocket,
       'private:voice:send',
       {
@@ -246,6 +272,7 @@ test('voice notes are private, expiring, validated and idempotent in rooms and p
       }
     );
     assert.equal(duplicatePrivate.ok, true);
+    assert.equal(duplicatePrivate.replayed, true);
     assert.equal(duplicatePrivate.message.id, sentPrivate.message.id);
 
     const privatePlayback = await app.inject({
