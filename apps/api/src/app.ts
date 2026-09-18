@@ -13,6 +13,7 @@ import { registerPrivateRoutes } from './modules/private/routes.js';
 import { registerPrayerRoutes } from './modules/prayer/routes.js';
 import { startPrayerScheduler } from './modules/prayer/scheduler.js';
 import { registerReactionRoutes } from './modules/reactions/routes.js';
+import { registerReleaseRoutes } from './modules/releases/routes.js';
 import { attachRealtime } from './modules/realtime/socket.js';
 import { registerRoomRoutes } from './modules/rooms/routes.js';
 import { registerSocialRoutes } from './modules/social/routes.js';
@@ -81,6 +82,10 @@ export async function buildApp() {
   });
 
   await registerReactionRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerReleaseRoutes(app, {
     basePath: apiBasePath
   });
 
