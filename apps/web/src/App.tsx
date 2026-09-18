@@ -1,5 +1,7 @@
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Icon } from './icons';
+import { AuthScreen } from './auth';
+import { useSession } from './session';
 import {
   AccountScreen,
   ConversationScreen,
@@ -62,5 +64,10 @@ function AppShell() {
 }
 
 export function App() {
+  const { status } = useSession();
+  if (status === 'loading') {
+    return <main className="auth-page"><div className="boot-loader" role="status">جاري فتح عكسة...</div></main>;
+  }
+  if (status === 'anonymous') return <AuthScreen />;
   return <AppShell />;
 }
