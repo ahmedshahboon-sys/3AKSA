@@ -39,6 +39,8 @@ export const SOUND_PACK={
   room_leave:{group:'rooms',haptic:'none'},
   purchase_success:{group:'interface',haptic:'success'},
   wallet_topup:{group:'interface',haptic:'success'},
+  wallet_transfer:{group:'interface',haptic:'success'},
+  gift_received:{group:'interface',haptic:'success'},
   admin_alert:{group:'interface',haptic:'warning'},
   prayer_alert:{group:'interface',haptic:'light'},
   button_important:{group:'interface',haptic:'light'}
