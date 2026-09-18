@@ -4,6 +4,7 @@ import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../../db.js';
 import { authenticateRequest, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
+import { createNotification } from '../notifications/service.js';
 
 type SocialUserRow = {
   id: string;
@@ -237,6 +238,14 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
        RETURNING id, sender_id, receiver_id, status, created_at`,
       [randomUUID(), auth.id, target.id]
     );
+    await createNotification({
+      userId: target.id,
+      type: 'friend_request',
+      title: 'طلب صداقة جديد',
+      body: `${auth.display_name} يبي يضيفك`,
+      data: { requestId: result.rows[0]!.id, username: auth.username },
+      soundKey: 'friend_request'
+    });
     return reply.code(201).send({ request: result.rows[0] });
   });
 
@@ -261,7 +270,7 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
     const auth = await requireUser(request, reply);
     if (!auth) return;
     try {
-      await withTransaction(async (client) => {
+      const accepted = await withTransaction(async (client) => {
         const found = await client.query<FriendRequestRow>(
           `SELECT id, sender_id, receiver_id, status, created_at
            FROM friend_requests
@@ -290,6 +299,15 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
           `UPDATE friend_requests SET status = 'accepted', updated_at = now() WHERE id = $1`,
           [friendRequest.id]
         );
+        return { senderId: friendRequest.sender_id };
+      });
+      await createNotification({
+        userId: accepted.senderId,
+        type: 'friend_accepted',
+        title: 'تم قبول الصداقة',
+        body: `${auth.display_name} قبل طلب الصداقة`,
+        data: { username: auth.username },
+        soundKey: 'friend_accepted'
       });
       return reply.send({ ok: true });
     } catch (error) {
