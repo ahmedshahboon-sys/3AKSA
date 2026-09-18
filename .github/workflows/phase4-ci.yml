@@ -1,4 +1,4 @@
-name: Phase 2 CI
+name: Phase 4 CI
 
 on:
   workflow_dispatch:
@@ -6,19 +6,19 @@ on:
     branches: [develop]
   push:
     branches:
-      - feature/phase2-core-backend
+      - feature/phase4-tv
 
 permissions:
   contents: read
 
 concurrency:
-  group: phase2-${{ github.workflow }}-${{ github.ref }}
+  group: phase4-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  core-backend:
+  tv:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     services:
       postgres:
         image: postgres:16
@@ -44,18 +44,18 @@ jobs:
           --health-retries 10
     env:
       NODE_ENV: test
-      APP_VERSION: phase2-ci
+      APP_VERSION: phase4-ci
       API_HOST: 127.0.0.1
       API_PORT: 3101
       API_BASE_PATH: /3aksa/api
       SOCKET_PATH: /3aksa/socket.io
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/threeaksa_test
       REDIS_URL: redis://127.0.0.1:6379/0
-      REDIS_KEY_PREFIX: "3aksa:test:"
+      REDIS_KEY_PREFIX: "3aksa:phase4-test:"
       STORAGE_DRIVER: local
       STORAGE_LOCAL_ROOT: ./.data/test-storage
-      SESSION_SECRET: phase2-ci-session-secret-00000000000000000000000000000000
-      PASSWORD_PEPPER: phase2-ci-password-pepper-000000000000000000000000000000
+      SESSION_SECRET: phase4-ci-session-secret-00000000000000000000000000000000
+      PASSWORD_PEPPER: phase4-ci-password-pepper-000000000000000000000000000000
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,42 +73,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Verify existing project contracts
+      - name: Typecheck project
         run: pnpm verify
 
       - name: Apply PostgreSQL migrations
         run: pnpm --filter @3aksa/api db:migrate
-
-      - name: Run economy integration tests
-        run: >-
-          pnpm --filter @3aksa/api exec tsx --test
-          tests/economy-wallet.integration.test.ts
-          tests/economy-store.integration.test.ts
-          tests/reactions.integration.test.ts
 
       - name: Run TV integration tests
         run: >-
           pnpm --filter @3aksa/api exec tsx --test
           tests/tv.integration.test.ts
           tests/tv-realtime.integration.test.ts
-
-      - name: Run legacy backend integration tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          tests=(
-            tests/auth.integration.test.ts
-            tests/nearby.integration.test.ts
-            tests/private.integration.test.ts
-            tests/rate-limit.integration.test.ts
-            tests/realtime.integration.test.ts
-            tests/rooms.integration.test.ts
-            tests/social-suggestions.integration.test.ts
-            tests/social.integration.test.ts
-            tests/voice.integration.test.ts
-          )
-          for test_file in "${tests[@]}"; do
-            echo "::group::$test_file"
-            timeout 90s pnpm --filter @3aksa/api exec tsx --test "$test_file"
-            echo "::endgroup::"
-          done
