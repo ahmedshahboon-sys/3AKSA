@@ -58,6 +58,17 @@ test('free likes are permission-aware, idempotent and limited to live messages',
     assert.equal(duplicate.json<{like:{count:number}}>().like.count,1);
     const summary=await app.inject({method:'GET',url:roomLikePath,headers:auth(v.accessToken)});
     assert.deepEqual(summary.json<{like:{count:number;reacted:boolean}}>().like,{count:1,reacted:true});
+
+    const viewerRoomHistory=await app.inject({method:'GET',url:`/3aksa/api/rooms/${roomId}/messages`,headers:auth(v.accessToken)});
+    assert.equal(viewerRoomHistory.statusCode,200,viewerRoomHistory.body);
+    const viewerRoomMessage=viewerRoomHistory.json<{messages:Array<{id:string;reactions:{like:{count:number;reacted:boolean}}}>}>().messages.find((message)=>message.id===roomMessageId);
+    assert.deepEqual(viewerRoomMessage?.reactions.like,{count:1,reacted:true});
+
+    const authorRoomHistory=await app.inject({method:'GET',url:`/3aksa/api/rooms/${roomId}/messages`,headers:auth(a.accessToken)});
+    assert.equal(authorRoomHistory.statusCode,200,authorRoomHistory.body);
+    const authorRoomMessage=authorRoomHistory.json<{messages:Array<{id:string;reactions:{like:{count:number;reacted:boolean}}}>}>().messages.find((message)=>message.id===roomMessageId);
+    assert.deepEqual(authorRoomMessage?.reactions.like,{count:1,reacted:false});
+
     const unlike=await app.inject({method:'DELETE',url:roomLikePath,headers:auth(v.accessToken)});
     assert.deepEqual(unlike.json<{like:{count:number;reacted:boolean}}>().like,{count:0,reacted:false});
 
@@ -93,6 +104,17 @@ test('free likes are permission-aware, idempotent and limited to live messages',
     assert.deepEqual(privateLike.json<{like:{count:number;reacted:boolean}}>().like,{count:1,reacted:true});
     const privateAgain=await app.inject({method:'PUT',url:privatePath,headers:auth(v.accessToken)});
     assert.equal(privateAgain.json<{like:{count:number}}>().like.count,1);
+
+    const viewerPrivateHistory=await app.inject({method:'GET',url:`/3aksa/api/private/conversations/${conversationId}/messages`,headers:auth(v.accessToken)});
+    assert.equal(viewerPrivateHistory.statusCode,200,viewerPrivateHistory.body);
+    const viewerPrivateMessage=viewerPrivateHistory.json<{messages:Array<{id:string;reactions:{like:{count:number;reacted:boolean}}}>}>().messages.find((message)=>message.id===privateMessageId);
+    assert.deepEqual(viewerPrivateMessage?.reactions.like,{count:1,reacted:true});
+
+    const authorPrivateHistory=await app.inject({method:'GET',url:`/3aksa/api/private/conversations/${conversationId}/messages`,headers:auth(a.accessToken)});
+    assert.equal(authorPrivateHistory.statusCode,200,authorPrivateHistory.body);
+    const authorPrivateMessage=authorPrivateHistory.json<{messages:Array<{id:string;reactions:{like:{count:number;reacted:boolean}}}>}>().messages.find((message)=>message.id===privateMessageId);
+    assert.deepEqual(authorPrivateMessage?.reactions.like,{count:1,reacted:false});
+
     const privateUnlike=await app.inject({method:'DELETE',url:privatePath,headers:auth(v.accessToken)});
     assert.deepEqual(privateUnlike.json<{like:{count:number;reacted:boolean}}>().like,{count:0,reacted:false});
   }finally{
