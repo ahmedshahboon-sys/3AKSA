@@ -228,6 +228,25 @@ test('wallet transfer is balanced, non-negative and idempotent', async () => {
     );
     assert.equal(duplicateCount.rows[0]?.count, '1');
 
+    await assert.rejects(
+      () => withTransaction(async (client) => {
+        const clearing = await client.query<{ id: string }>(
+          "SELECT id FROM wallet_accounts WHERE system_code = 'topup_clearing' LIMIT 1"
+        );
+        assert.ok(clearing.rows[0]?.id);
+        const txId = randomUUID();
+        await client.query(
+          "INSERT INTO wallet_transactions (id, kind, metadata) VALUES ($1, 'refund', '{}'::jsonb)",
+          [txId]
+        );
+        await client.query(
+          'INSERT INTO wallet_postings (id, transaction_id, account_id, amount_milli) VALUES ($1, $2, $3, $4)',
+          [randomUUID(), txId, clearing.rows[0]!.id, 1]
+        );
+      }),
+      (error: unknown) => (error as { code?: string }).code === '23514'
+    );
+
     const unbalanced = await query<{ transaction_id: string }>(
       `SELECT transaction_id
        FROM wallet_postings
