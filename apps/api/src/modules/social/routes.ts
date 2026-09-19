@@ -212,12 +212,11 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
       `UPDATE users
        SET display_name = COALESCE($2, display_name),
            bio = CASE WHEN $3::boolean THEN $4::varchar ELSE bio END,
-           nearby_enabled = COALESCE($5, nearby_enabled),
+           nearby_enabled = CASE WHEN $9::boolean=false THEN false ELSE COALESCE($5,nearby_enabled) END,
            mutual_suggestions_enabled = COALESCE($6, mutual_suggestions_enabled),
            language=COALESCE($7,language),
            profile_visibility=COALESCE($8,profile_visibility),
            nearby_consent_at=CASE WHEN $9::boolean IS NULL THEN nearby_consent_at WHEN $9 THEN COALESCE(nearby_consent_at,now()) ELSE NULL END,
-           nearby_enabled=CASE WHEN $9::boolean=false THEN false ELSE nearby_enabled END,
            updated_at = now()
        WHERE id = $1
        RETURNING id, username, display_name, gender, bio, nearby_enabled, mutual_suggestions_enabled,language,profile_visibility,nearby_consent_at`,
