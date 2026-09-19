@@ -175,6 +175,61 @@ export type AndroidReleaseCheck = {
   required: boolean;
 };
 
+export type AdminMe = {
+  user: { id: string; username: string; displayName: string };
+  roles: Array<'super_admin'|'tv_admin'|'moderation_admin'|'finance_admin'|'release_admin'>;
+  mfa: { enabled: boolean; enabledAt: string | null };
+};
+
+export type AdminOverview = {
+  users: { active: number; banned: number; deleted: number };
+  openReports: number;
+  pendingTopups: number;
+  activeRooms: number;
+};
+
+export type AdminUserSummary = {
+  id: string; username: string; displayName: string; phone: string; gender: Gender;
+  status: 'active'|'banned'|'deleted'; createdAt: string;
+  moderationReason: string | null; moderatedAt: string | null;
+};
+
+export type AdminUserDetail = AdminUserSummary & {
+  bio: string | null;
+  nearbyEnabled: boolean;
+  roles: string[];
+  devices: Array<{
+    installationId: string; platform: string | null; firstSeenAt: string;
+    lastSeenAt: string; blockedAt: string | null;
+  }>;
+  lastLocation: {
+    latitude: number; longitude: number; accuracyM: number | null; updatedAt: string;
+  } | null;
+};
+
+export type AdminReport = {
+  id: string; reason: string; details: string | null; status: 'open'|'reviewing'|'closed';
+  reporter: { id: string; username: string };
+  target: { id: string; username: string };
+  reviewNote: string | null; createdAt: string; updatedAt: string;
+};
+
+export type AdminTopup = {
+  id: string;
+  user: { id: string; username: string; displayName: string };
+  amountMilli: number; paymentReference: string | null; note: string | null; createdAt: string;
+};
+
+export type AdminAuditEntry = {
+  id: string;
+  actor: { id: string; username: string };
+  action: string;
+  target: { id: string; username: string | null } | null;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type NotificationPreferences = {
   pushEnabled: boolean;
   categories: {
@@ -593,5 +648,115 @@ export class ApiClient {
     return this.request<AndroidReleaseCheck>(
       withQuery('/app/releases/android/latest', { currentVersionCode, channel })
     );
+  }
+
+  adminMe() {
+    return this.request<AdminMe>('/admin/me');
+  }
+
+  adminMfaSetup(password: string) {
+    return this.request<{ secret: string; otpauth: string; expiresAt: string }>('/admin/security/mfa/setup', {
+      method: 'POST', body: JSON.stringify({ password })
+    });
+  }
+
+  adminMfaConfirm(code: string) {
+    return this.request<{ enabled: true }>('/admin/security/mfa/confirm', {
+      method: 'POST', body: JSON.stringify({ code })
+    });
+  }
+
+  adminOverview(mfaCode: string) {
+    return this.request<{ overview: AdminOverview }>('/admin/overview', {
+      headers: { 'X-Admin-Mfa-Code': mfaCode }
+    });
+  }
+
+  adminUsers(mfaCode: string, params: { search?: string; status?: AdminUserSummary['status']; limit?: number } = {}) {
+    return this.request<{ users: AdminUserSummary[] }>(withQuery('/admin/users', params), {
+      headers: { 'X-Admin-Mfa-Code': mfaCode }
+    });
+  }
+
+  adminUser(mfaCode: string, userId: string) {
+    return this.request<{ user: AdminUserDetail }>(`/admin/users/${encodeURIComponent(userId)}`, {
+      headers: { 'X-Admin-Mfa-Code': mfaCode }
+    });
+  }
+
+  adminBanUser(mfaCode: string, userId: string, reason: string) {
+    return this.request<{ user: { id: string; status: 'banned' } }>(`/admin/users/${encodeURIComponent(userId)}/ban`, {
+      method: 'POST', headers: { 'X-Admin-Mfa-Code': mfaCode }, body: JSON.stringify({ reason })
+    });
+  }
+
+  adminUnbanUser(mfaCode: string, userId: string, reason: string) {
+    return this.request<{ user: { id: string; status: 'active' } }>(`/admin/users/${encodeURIComponent(userId)}/unban`, {
+      method: 'POST', headers: { 'X-Admin-Mfa-Code': mfaCode }, body: JSON.stringify({ reason })
+    });
+  }
+
+  adminDeleteUser(mfaCode: string, userId: string, reason: string) {
+    return this.request<{ user: { id: string; status: 'deleted' } }>(`/admin/users/${encodeURIComponent(userId)}/delete`, {
+      method: 'POST', headers: { 'X-Admin-Mfa-Code': mfaCode }, body: JSON.stringify({ reason })
+    });
+  }
+
+  adminResetPassword(mfaCode: string, userId: string, newPassword: string, reason: string) {
+    return this.request<{ result: { id: string; reset: true } }>(`/admin/users/${encodeURIComponent(userId)}/password-reset`, {
+      method: 'POST', headers: { 'X-Admin-Mfa-Code': mfaCode }, body: JSON.stringify({ newPassword, reason })
+    });
+  }
+
+  adminReports(mfaCode: string, status?: AdminReport['status']) {
+    return this.request<{ reports: AdminReport[] }>(withQuery('/admin/reports', { status }), {
+      headers: { 'X-Admin-Mfa-Code': mfaCode }
+    });
+  }
+
+  adminReviewReport(mfaCode: string, reportId: string, status: 'reviewing'|'closed', note?: string) {
+    return this.request<{ report: { id: string; status: string } }>(`/admin/reports/${encodeURIComponent(reportId)}`, {
+      method: 'PATCH', headers: { 'X-Admin-Mfa-Code': mfaCode }, body: JSON.stringify({ status, note })
+    });
+  }
+
+  adminTopups(mfaCode: string) {
+    return this.request<{ topups: AdminTopup[] }>('/admin/topups', {
+      headers: { 'X-Admin-Mfa-Code': mfaCode }
+    });
+  }
+
+  adminApproveTopup(mfaCode: string, requestId: string) {
+    return this.request<unknown>(`/admin/topups/${encodeURIComponent(requestId)}/approve`, {
+      method: 'POST', headers: { 'X-Admin-Mfa-Code': mfaCode }
+    });
+  }
+
+  adminRejectTopup(mfaCode: string, requestId: string) {
+    return this.request<unknown>(`/admin/topups/${encodeURIComponent(requestId)}/reject`, {
+      method: 'POST', headers: { 'X-Admin-Mfa-Code': mfaCode }
+    });
+  }
+
+  adminAudit(mfaCode: string, limit = 100) {
+    return this.request<{ audit: AdminAuditEntry[] }>(withQuery('/admin/audit', { limit }), {
+      headers: { 'X-Admin-Mfa-Code': mfaCode }
+    });
+  }
+
+  adminBreakGlassPrivate(mfaCode: string, conversationId: string, reason: string, limit = 100) {
+    return this.request<{
+      conversation: { id: string; status: string; participants: Array<{ id: string; username: string }> };
+      messages: Array<{
+        id: string; type: 'text'|'voice'; text: string | null;
+        voice: { mime: string | null; bytes: number | null; durationMs: number | null } | null;
+        sender: { id: string; username: string; displayName: string };
+        createdAt: string; expiresAt: string;
+      }>;
+    }>(`/admin/break-glass/private/${encodeURIComponent(conversationId)}/messages`, {
+      method: 'POST',
+      headers: { 'X-Admin-Mfa-Code': mfaCode },
+      body: JSON.stringify({ reason, limit })
+    });
   }
 }
