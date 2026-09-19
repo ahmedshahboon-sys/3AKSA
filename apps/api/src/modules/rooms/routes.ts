@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { query, withTransaction } from '../../db.js';
+import { consumeRateLimit } from '../../rate-limit.js';
 import { authenticateRequest, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername } from '../auth/security.js';
 import { tvEvents } from '../tv/events.js';
@@ -344,6 +345,16 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
   app.get<{ Params: { roomId: string } }>(`${prefix}/:roomId/management`, async (request, reply) => {
     const auth = await requireUser(request, reply);
     if (!auth) return;
+    const managementLimit = await consumeRateLimit(
+      'room-management-read',
+      `user:${auth.id}`,
+      120,
+      60
+    );
+    if (!managementLimit.allowed) {
+      reply.header('Retry-After', String(managementLimit.retryAfterSeconds));
+      return reply.code(429).send({ error: 'RATE_LIMITED', retryAfterSeconds: managementLimit.retryAfterSeconds });
+    }
     const permission = await canManageRoom(request.params.roomId, auth.id);
     if (!permission.exists) return reply.code(404).send({ error: 'ROOM_NOT_FOUND' });
     if (!permission.allowed) return reply.code(403).send({ error: 'ROOM_MANAGER_REQUIRED' });
