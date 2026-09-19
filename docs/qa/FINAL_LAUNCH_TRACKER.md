@@ -244,8 +244,27 @@ External closure required:
 - Create `ahmed`, configure Admin MFA, then disable owner bootstrap.
 - Record non-secret health/readiness/container/retention evidence.
 
+Source/CI closure:
+- PR #30 merged to develop at `585f05bda7eaa663fdc20ea942c6a15f262c77c2`.
+- All applicable Phase CI, Phase 9 QA, CodeQL Security and Android Release Candidate: PASS.
+- Group remains `BLOCKED_EXTERNAL` only for the real host/bootstrap evidence above.
+
 ### GROUP 11 — FINAL TWO-ACCOUNT + PHYSICAL DEVICE QA
-Status: **BLOCKED_EXTERNAL**
+Status: **BLOCKED_EXTERNAL** (source-side QA harness complete; real device/two-account evidence required)
+
+Source-side changes:
+- Added an ADB physical-device evidence harness for package `ly.threeaksa.app` with hashed device serial, package/device metadata, app-PID-scoped logcat and crash/ANR fail conditions.
+- Local QA evidence is stored only under gitignored `qa-evidence/`.
+- Added the final two-account/physical-device matrix covering startup/post-login stability, room/private text+voice, presence, gender/private-room policy, moderation, block/report, Nearby, Store/Rose/TV feature-gated checks, PWA Android/iOS, offline/weak-network recovery, permissions, APK update and accessibility.
+- Added a non-secret evidence template with explicit P0/P1 release blockers.
+- Added `tests/group11-physical-qa.test.mjs`.
+
+External closure required:
+- Run the matrix against deployed Production using two ordinary accounts.
+- Run the ADB harness before and after login on at least one physical Android device.
+- Verify a signed APK install/update and record APK/certificate SHA-256.
+- Complete PWA install checks on Android and iOS.
+- Close every P0/P1 before Group 12 launch approval.
 
 ### GROUP 12 — RELEASE CLOSURE & PUBLIC BETA
 Status: **NOT STARTED**
