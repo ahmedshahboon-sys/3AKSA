@@ -374,3 +374,10 @@ h3 { margin: 0; font-size: .96rem; }
 .avatar-badge { position:absolute; z-index:4; right:-7px; bottom:-5px; width:20px; height:20px; object-fit:contain; filter:drop-shadow(0 2px 4px rgb(0 0 0 / 28%)); }
 .avatar-badge-text { position:absolute; z-index:4; right:-8px; bottom:-7px; max-width:54px; overflow:hidden; padding:2px 5px; border:1px solid var(--border); border-radius:999px; background:var(--card); color:var(--primary); font-size:.48rem; text-overflow:ellipsis; white-space:nowrap; box-shadow:var(--shadow); }
 .store-admin-preview { display:block; width:48px; height:48px; margin-top:6px; object-fit:contain; border:1px solid var(--border); border-radius:10px; background:var(--elevated); }
+
+.store-inline-actions { display:grid; gap:8px; margin:10px 0; padding:11px; border:1px solid var(--border); border-radius:16px; background:var(--card); }
+.store-inline-actions > b { font-size:.74rem; }
+.store-inline-actions > small { color:var(--muted); font-size:.62rem; line-height:1.5; }
+.inline-store-icon { width:22px; height:22px; object-fit:contain; vertical-align:middle; }
+.sticker-picker { display:flex; gap:6px; overflow-x:auto; padding:6px 2px 8px; scrollbar-width:thin; }
+.sticker-picker button { min-width:40px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:11px; background:var(--card); color:var(--text); font-size:1rem; }
