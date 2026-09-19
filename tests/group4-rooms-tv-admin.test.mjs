@@ -18,7 +18,7 @@ must(app,'path="/rooms/:roomId/manage"','room manage route');
 must(rooms,"'/manage'","room manager entry");
 for(const label of ['إعدادات الغرفة','المشرفون','حظر من الغرفة','دعوات الغرفة الخاصة'])must(roomManage,label,label);
 
-for(const endpoint of ['/tv/admin/channels','/tv/admin/imports/m3u','/tv/admin/imports'])must(tvRoutes,endpoint,endpoint);
+for(const endpoint of ['/admin/channels','/admin/imports/m3u','/admin/imports'])must(tvRoutes,endpoint,endpoint);
 for(const method of ['adminTvChannels','createAdminTvChannel','updateAdminTvChannel','deleteAdminTvChannel','deleteAllAdminTvChannels','reorderAdminTvChannels','importAdminM3u','adminTvImports'])must(client,method+'(',method);
 must(app,'path="/admin/tv"','TV admin route');
 for(const label of ['إضافة قناة','ترتيب أبجدي','حذف الكل','استيراد M3U / M3U8','سجل الاستيراد'])must(tvAdmin,label,label);
