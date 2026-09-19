@@ -12,7 +12,7 @@ export type AuthUser = {
 
 export type AuthSession = {
   user: AuthUser;
-  accessToken: string;
+  accessToken: string | null;
   expiresAt: string;
 };
 
@@ -331,6 +331,7 @@ export class ApiClient {
     let response: Response;
     try {
       response = await this.fetchImpl(this.requestUrl(path), {
+        credentials: init.credentials ?? 'include',
         ...init,
         headers
       });
@@ -358,13 +359,26 @@ export class ApiClient {
 
   register(input: {
     username: string; displayName: string; phone: string; gender: Gender;
-    password: string; deviceId: string; platform: string;
+    password: string; deviceId: string; platform: string; sessionMode?: 'cookie'|'bearer';
   }) {
-    return this.request<AuthSession>('/auth/register', { method: 'POST', body: JSON.stringify(input) });
+    const {sessionMode,...body}=input;
+    return this.request<AuthSession>('/auth/register', {
+      method: 'POST',
+      headers: sessionMode==='cookie' ? {'X-3AKSA-Session-Mode':'cookie'} : undefined,
+      body: JSON.stringify(body)
+    });
   }
 
-  login(input: { login: string; password: string; deviceId: string; platform: string }) {
-    return this.request<AuthSession>('/auth/login', { method: 'POST', body: JSON.stringify(input) });
+  login(input: {
+    login: string; password: string; deviceId: string; platform: string;
+    sessionMode?: 'cookie'|'bearer';
+  }) {
+    const {sessionMode,...body}=input;
+    return this.request<AuthSession>('/auth/login', {
+      method: 'POST',
+      headers: sessionMode==='cookie' ? {'X-3AKSA-Session-Mode':'cookie'} : undefined,
+      body: JSON.stringify(body)
+    });
   }
 
   me() {
