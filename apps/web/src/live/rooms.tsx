@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { ChatMessage, Room, TvChannel } from '@3aksa/api-client';
+import type { ChatMessage, Room, StoreItem, TvChannel } from '@3aksa/api-client';
 import { api, realtime } from '../runtime';
 import { useSession } from '../session';
 import { readableError, useApiResource } from '../useApiResource';
@@ -17,6 +17,13 @@ type RoomTvState={
   canManage?:boolean;
   selectedChannel?:TvChannel|null;
 };
+
+function roomStickerTexts(items:Array<StoreItem & {acquiredAt:string}>){
+  return items.filter(item=>item.type==='sticker_pack').flatMap(item=>{
+    const stickers=Array.isArray(item.metadata?.stickers)?item.metadata!.stickers:[];
+    return stickers.filter((value):value is string=>typeof value==='string'&&value.length>0&&value.length<=64);
+  }).slice(0,32);
+}
 
 const entrySoundCooldown=new Map<string,number>();
 
@@ -142,11 +149,16 @@ export function LiveRoomChatScreen(){
   const resource=useApiResource(async()=>{
     const roomResponse=await api.room(roomId);
     await api.joinCheck(roomId);
-    const [messageResponse,tvResponse]=await Promise.all([api.roomMessages(roomId,{limit:100}),api.roomTv(roomId)]);
+    const [messageResponse,tvResponse,inventory,reactions]=await Promise.all([
+      api.roomMessages(roomId,{limit:100}),api.roomTv(roomId),api.inventory(),api.storeItems('reaction')
+    ]);
     let channels:TvChannel[]=[];
     const tvState=tvResponse.tv as RoomTvState;
     if(tvState.canManage){channels=(await api.tvChannels({sort:'manual',limit:500})).channels;}
-    return {room:roomResponse.room,messages:messageResponse.messages,tv:tvState,channels};
+    return {
+      room:roomResponse.room,messages:messageResponse.messages,tv:tvState,channels,
+      stickers:roomStickerTexts(inventory.items),reactions:reactions.items
+    };
   },[roomId]);
 
   useEffect(()=>{
@@ -216,6 +228,14 @@ export function LiveRoomChatScreen(){
     const ack=await realtime.setRoomLike(roomId,message.id,!current) as {ok?:boolean;error?:string;like?:{count:number}};
     if(!ack.ok){setActionError(ack.error??'REACTION_UPDATE_FAILED');return;}
     setMessages((items)=>items.map((item)=>item.id===message.id?{...item,reactions:{like:{count:ack.like?.count??item.reactions?.like.count??0,reacted:!current}}}:item));
+  }
+  async function paidReaction(message:ChatMessage,item:StoreItem){
+    const recipient=message.sender?.username;
+    if(!recipient||message.sender?.id===user?.id)return;
+    setActionError('');
+    try{
+      await api.sendGift(recipient,item.code,crypto.randomUUID(),{type:'room_message',id:message.id});
+    }catch(error){setActionError(readableError(error));}
   }
 
   async function removeMessage(messageId:string){
@@ -289,6 +309,7 @@ export function LiveRoomChatScreen(){
                 ):<div className="message-bubble">{message.text||''}</div>}
                 <div className="message-actions">
                   <button type="button" className={message.reactions?.like.reacted?'active':''} onClick={()=>void toggleLike(message)}>❤️ {message.reactions?.like.count??0}</button>
+                  {!mine?resource.data.reactions.slice(0,3).map(item=><button type="button" key={item.id} onClick={()=>void paidReaction(message,item)}>{item.name} · {(item.priceMilli/1000).toFixed(3)}</button>):null}
                   {(mine||room.viewerRole!=='viewer')?<button type="button" onClick={()=>void removeMessage(message.id)}>حذف</button>:null}
                   {!mine&&message.sender?.username?<><Link className="link-reset" to={'/profiles/'+encodeURIComponent(message.sender.username)}>الملف</Link><Link className="link-reset" to={'/profiles/'+encodeURIComponent(message.sender.username)+'?report=1'}>بلاغ</Link><button type="button" onClick={()=>void blockRoomMember(message.sender!.username)}>حظر</button></>:null}
                 </div>
@@ -298,6 +319,7 @@ export function LiveRoomChatScreen(){
         }):<div className="empty-state-inline">ابدأ أول رسالة في الغرفة 👋</div>}
       </section>
 
+      {resource.data.stickers.length?<div className="sticker-picker" aria-label="الملصقات">{resource.data.stickers.map((sticker,index)=><button type="button" key={sticker+index} onClick={()=>setComposer(current=>(current?current+' ':'')+sticker)}>{sticker}</button>)}</div>:null}
       <form className="chat-composer live-composer" onSubmit={sendText}>
         <input value={composer} onChange={(e)=>setComposer(e.target.value)} maxLength={2000} aria-label="نص الرسالة" placeholder="اكتب حاجة..." />
         <VoiceRecorderButton disabled={sending} onReady={sendVoice}/>
