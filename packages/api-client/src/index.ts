@@ -189,6 +189,9 @@ export type StoreItem = {
   metadata?: Record<string, unknown>;
   owned?: boolean;
   equipped?: boolean;
+  status?: 'draft'|'active'|'hidden';
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type TvChannel = {
@@ -719,6 +722,10 @@ export class ApiClient {
     });
   }
 
+  storeAssetUrl(code:string){
+    return this.requestUrl(`/store/assets/${encodeURIComponent(code)}`);
+  }
+
   storeItems(type?: StoreItem['type']) {
     return this.request<{ items: StoreItem[] }>(withQuery('/store/items', { type }));
   }
@@ -744,9 +751,16 @@ export class ApiClient {
     });
   }
 
-  sendGift(recipientUsername: string, giftCode: string, idempotencyKey: string) {
+  sendGift(
+    recipientUsername:string,giftCode:string,idempotencyKey:string,
+    context?:{type:'profile'|'room'|'room_message'|'private_message';id?:string}
+  ){
     return this.request<{ item: StoreItem; recipient: Profile; balanceMilli: number; replayed: boolean }>('/gifts/send', {
-      method: 'POST', idempotencyKey, body: JSON.stringify({ recipientUsername, giftCode })
+      method:'POST',idempotencyKey,
+      body:JSON.stringify({
+        recipientUsername,giftCode,
+        ...(context?{contextType:context.type,contextId:context.id}:{})
+      })
     });
   }
 
@@ -976,6 +990,44 @@ export class ApiClient {
   adminReviewReport(mfaCode: string, reportId: string, status: 'reviewing'|'closed', note?: string) {
     return this.request<{ report: { id: string; status: string } }>(`/admin/reports/${encodeURIComponent(reportId)}`, {
       method: 'PATCH', headers: { 'X-Admin-Mfa-Code': mfaCode }, body: JSON.stringify({ status, note })
+    });
+  }
+
+  adminStoreItems(mfaCode:string){
+    return this.request<{items:StoreItem[]}>('/admin/store/items',{
+      headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
+  }
+
+  adminCreateStoreItem(mfaCode:string,input:{
+    code:string;type:StoreItem['type'];name:string;description?:string|null;
+    priceMilli:number;recipientShareMilli?:number;status?:'draft'|'active'|'hidden';
+    metadata?:Record<string,unknown>;
+  }){
+    return this.request<{item:StoreItem}>('/admin/store/items',{
+      method:'POST',headers:{'X-Admin-Mfa-Code':mfaCode},body:JSON.stringify(input)
+    });
+  }
+
+  adminUpdateStoreItem(mfaCode:string,itemId:string,patch:Partial<{
+    code:string;type:StoreItem['type'];name:string;description:string|null;
+    priceMilli:number;recipientShareMilli:number;status:'draft'|'active'|'hidden';
+    metadata:Record<string,unknown>;
+  }>){
+    return this.request<{item:StoreItem}>(`/admin/store/items/${encodeURIComponent(itemId)}`,{
+      method:'PATCH',headers:{'X-Admin-Mfa-Code':mfaCode},body:JSON.stringify(patch)
+    });
+  }
+
+  adminRetireStoreItem(mfaCode:string,itemId:string){
+    return this.request<void>(`/admin/store/items/${encodeURIComponent(itemId)}`,{
+      method:'DELETE',headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
+  }
+
+  adminUploadStoreAsset(mfaCode:string,itemId:string,base64:string){
+    return this.request<{asset:{mime:string;bytes:number}}>(`/admin/store/items/${encodeURIComponent(itemId)}/asset`,{
+      method:'POST',headers:{'X-Admin-Mfa-Code':mfaCode},body:JSON.stringify({base64})
     });
   }
 
