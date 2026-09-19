@@ -41,6 +41,7 @@ chmod 600 /etc/3aksa/3aksa.env
 cd "${ROOT}"
 
 docker compose -f "${COMPOSE}" build api
+docker compose -f "${COMPOSE}" --profile ops run --rm api sh -lc 'pnpm --filter @3aksa/api security:preflight'
 docker compose -f "${COMPOSE}" --profile ops run --rm migrate
 docker compose -f "${COMPOSE}" --profile build run --rm web-build
 docker compose -f "${COMPOSE}" up -d api worker
@@ -66,11 +67,9 @@ rm -f /tmp/3aksa-ready.json
 
 "${ROOT}/infra/server/install-nginx-subpath.sh"
 
-curl -fsS https://marbo3a.ly/3aksa/api/health
-printf '\n'
-curl -fsS https://marbo3a.ly/3aksa/api/ready
-printf '\n'
-curl -fsSI https://marbo3a.ly/3aksa/ | head
+bash "${ROOT}/infra/server/verify-production.sh"
 
 echo
 echo "3AKSA trial deployment is live at https://marbo3a.ly/3aksa/"
+echo "Before public beta: create the owner account 'ahmed' using the secret in /etc/3aksa/owner-claim-secret, then run:"
+echo "  sudo bash infra/server/disable-owner-bootstrap.sh"
