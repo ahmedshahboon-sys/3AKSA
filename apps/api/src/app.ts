@@ -3,6 +3,8 @@ import { apiBasePath, env } from './config.js';
 import { db } from './db.js';
 import { closeRedis } from './redis.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
+import { registerAuthRecoveryRoutes } from './modules/auth/recovery.js';
+import { registerAuthDeviceRoutes } from './modules/auth/devices.js';
 import { registerAdminRoutes } from './modules/admin/routes.js';
 import { registerEconomyRoutes } from './modules/economy/routes.js';
 import { registerStoreRoutes } from './modules/economy/store-routes.js';
@@ -49,6 +51,14 @@ export async function buildApp() {
   });
 
   await registerAuthRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerAuthRecoveryRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerAuthDeviceRoutes(app, {
     basePath: apiBasePath
   });
 
