@@ -235,7 +235,7 @@ export function LiveRoomChatScreen(){
 
   return (
     <main className="page-shell chat-screen">
-      <ScreenHeader title={room.name} eyebrow={onlineCount+' موجود الآن'} backTo="/rooms" trailing={<div className="header-actions"><button className="icon-button compact" type="button" onClick={()=>void shareRoom()} aria-label="مشاركة"><Icon name="share"/></button></div>} />
+      <ScreenHeader title={room.name} eyebrow={onlineCount+' موجود الآن'} backTo="/rooms" trailing={<div className="header-actions">{room.viewerRole!=='viewer'?<Link className="secondary-button link-reset" to={'/rooms/'+encodeURIComponent(room.id)+'/manage'}>إدارة</Link>:null}<button className="icon-button compact" type="button" onClick={()=>void shareRoom()} aria-label="مشاركة"><Icon name="share"/></button></div>} />
 
       {tv?.enabled&&tv.channel?(
         <section className="tv-player compact-player">
