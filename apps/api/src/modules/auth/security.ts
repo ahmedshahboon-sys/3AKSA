@@ -59,7 +59,7 @@ export function validatePhone(value: string): boolean {
 }
 
 export function validatePassword(value: string): boolean {
-  return value.length >= 8 && value.length <= 128;
+  return value.length >= 8 && value.length <= 128 && /\p{L}/u.test(value) && /\p{N}/u.test(value);
 }
 
 export async function hashPassword(password: string): Promise<string> {
