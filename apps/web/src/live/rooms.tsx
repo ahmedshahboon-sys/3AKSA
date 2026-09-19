@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ChatMessage, Room, TvChannel } from '@3aksa/api-client';
 import { api, realtime } from '../runtime';
 import { useSession } from '../session';
