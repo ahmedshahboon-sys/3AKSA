@@ -23,8 +23,10 @@ import { registerSuggestionRoutes } from './modules/social/suggestions.js';
 import { registerTvRoutes } from './modules/tv/routes.js';
 import { registerRequestRateLimits } from './request-rate-limits.js';
 import { registerHttpSecurity } from './security-http.js';
+import { assertProductionSecurity } from './production-security.js';
 
 export async function buildApp() {
+  assertProductionSecurity(env);
   const app = Fastify({
     logger: {
       level: env.NODE_ENV === 'production' ? 'info' : 'debug'
