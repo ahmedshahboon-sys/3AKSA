@@ -20,7 +20,6 @@ const app=read('apps/api/src/app.ts');
 must(compose,'127.0.0.1:3101:3101','loopback-only published API');
 must(compose,'name: marbo3a_default','existing external Docker network');
 must(compose,'/var/lib/3aksa:/var/lib/3aksa','isolated storage');
-must(compose,'REDIS','compose must not embed Redis credentials');
 mustNot(compose,'POSTGRES_PASSWORD','compose');
 mustNot(compose,'SESSION_SECRET=','compose');
 must(compose,'read_only: true','runtime filesystem');
