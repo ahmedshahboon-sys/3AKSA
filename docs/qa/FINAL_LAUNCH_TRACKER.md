@@ -67,9 +67,13 @@ Current blockers:
 - Production/server network and physical-device checks are external to this connector session.
 
 ### GROUP 1 — ANDROID P0 STABILITY
-Status: **IN PROGRESS**
+Status: **BLOCKED_EXTERNAL** (code/CI closure complete; physical-device/logcat proof remains external)
 
-Changes in progress:
+Merged:
+- PR #21 → `develop` at `abe32d83f5822149525e86393e674f410791ac75`.
+- Phase 1–11 applicable CI, CodeQL and Android Release Candidate: PASS.
+
+Changes:
 - Top-level React Error Boundary.
 - Native push fail-safe; no permission prompt during core startup.
 - Native app-link/app-info fail-safe.
@@ -79,7 +83,20 @@ Changes in progress:
 Physical-device crash closure remains `BLOCKED_EXTERNAL` until a real Android device/logcat run is supplied.
 
 ### GROUP 2 — AUTH / RECOVERY / DEVICES / SESSIONS
-Status: **NOT STARTED**
+Status: **IN PROGRESS**
+
+Changes:
+- Unified password policy across registration/admin/recovery: 8–128 chars with at least one Unicode letter and one number.
+- Non-enumerating recovery requests with rate limits and expiry.
+- MFA-protected Super Admin approval/rejection with one-time recovery code.
+- Recovery token stored only as SHA-256 hash; single-use confirmation revokes old sessions and creates one new session.
+- User “أجهزتي” API/UI with current-device awareness, device-specific revoke, and revoke-all-other-sessions.
+- Added migration `0020_auth_recovery.sql`.
+- Added Phase 2 integration coverage for recovery and device/session revocation.
+
+Pending:
+- CI/CodeQL on Group 2 PR.
+- Production migration state remains external.
 
 ### GROUP 3 — SOCIAL / FRIENDS / BLOCK / REPORT
 Status: **NOT STARTED**
