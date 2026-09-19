@@ -91,7 +91,7 @@ function orderedFriendIds(userA: string, userB: string): [string, string] {
   return userA < userB ? [userA, userB] : [userB, userA];
 }
 
-async function cancelRelationship(client: PoolClient, userA: string, userB: string) {
+async function cancelRelationship(client: PoolClient, userA: string, userB: string, usernameA: string, usernameB: string) {
   await client.query(
     `UPDATE friend_requests
      SET status = 'cancelled', updated_at = now()
@@ -101,6 +101,12 @@ async function cancelRelationship(client: PoolClient, userA: string, userB: stri
   );
   const [low, high] = orderedFriendIds(userA, userB);
   await client.query('DELETE FROM friendships WHERE user_low_id = $1 AND user_high_id = $2', [low, high]);
+  await client.query(
+    `DELETE FROM notifications
+     WHERE (user_id = $1 AND data->>'username' = $4)
+        OR (user_id = $2 AND data->>'username' = $3)`,
+    [userA, userB, usernameA, usernameB]
+  );
 }
 
 function requestDto(row: FriendRequestListRow, viewerId: string) {
@@ -389,7 +395,7 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
          ON CONFLICT DO NOTHING`,
         [auth.id, target.id]
       );
-      await cancelRelationship(client, auth.id, target.id);
+      await cancelRelationship(client, auth.id, target.id, auth.username, target.username);
     });
     return reply.code(201).send({ ok: true });
   });

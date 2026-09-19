@@ -15,6 +15,7 @@ import { LivePrayerSettingsScreen } from './live/prayer';
 import { LiveRealtimeEffects } from './live/realtimeEffects';
 import { PwaLifecycle } from './live/pwaLifecycle';
 import { LiveAdminScreen } from './live/admin';
+import { LiveFriendsScreen,LiveProfileScreen } from './live/social';
 
 const navItems = [
   { label: 'الرئيسية', path: '/', icon: 'home' as const },
@@ -47,6 +48,8 @@ function AppShell() {
         <Route path="/rooms" element={<LiveRoomsScreen />} />
         <Route path="/rooms/:roomId" element={<LiveRoomChatScreen />} />
         <Route path="/nearby" element={<LiveNearbyScreen />} />
+        <Route path="/friends" element={<LiveFriendsScreen />} />
+        <Route path="/profiles/:username" element={<LiveProfileScreen />} />
         <Route path="/private" element={<LivePrivateScreen />} />
         <Route path="/private/new/:username" element={<LiveNewConversationScreen />} />
         <Route path="/private/:conversationId" element={<LiveConversationScreen />} />

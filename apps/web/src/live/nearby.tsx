@@ -49,6 +49,14 @@ export function LiveNearbyScreen(){
     catch(error){setActionError(readableError(error));}
   }
 
+  async function blockUser(username:string){
+    try{
+      await api.blockUser(username);
+      setActionError('تم الحظر ✅');
+      await resource.reload();
+    }catch(error){setActionError(readableError(error));}
+  }
+
   const enabled=Boolean(resource.data?.profile.nearbyEnabled);
   const people=resource.data?.people??[];
   return (
@@ -67,7 +75,7 @@ export function LiveNearbyScreen(){
           <article className="person-card" key={person.id}>
             <Avatar name={person.displayName} gender={genderToUi(person.gender)}/>
             <div className="grow"><h3>{person.displayName} <span className="gender-symbol">{person.gender==='boy'?'♂':'♀'}</span></h3><p>{person.distanceLabel}{person.bio?' · '+person.bio:''}</p></div>
-            <div className="person-actions"><button className="secondary-button" type="button" onClick={()=>void addFriend(person.username)}>إضافة</button><button className="secondary-button" type="button" onClick={()=>navigate('/private/new/'+encodeURIComponent(person.username))}>مراسلة</button></div>
+            <div className="person-actions"><button className="secondary-button" type="button" onClick={()=>void addFriend(person.username)}>إضافة</button><button className="secondary-button" type="button" onClick={()=>navigate('/private/new/'+encodeURIComponent(person.username))}>مراسلة</button><button className="secondary-button" type="button" onClick={()=>navigate('/profiles/'+encodeURIComponent(person.username))}>الملف</button><button className="secondary-button" type="button" onClick={()=>navigate('/profiles/'+encodeURIComponent(person.username)+'?report=1')}>بلاغ</button><button className="secondary-button" type="button" onClick={()=>void blockUser(person.username)}>حظر</button></div>
           </article>
         ))}</div>
       </LiveState>

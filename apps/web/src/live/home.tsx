@@ -47,13 +47,13 @@ export function LiveHomeScreen(){
         <div className="stack">{data?.rooms.slice(0,3).map((room)=><LiveRoomCard key={room.id} room={room}/>)}</div>
       </LiveState>
 
-      <SectionTitle title="الأصدقاء" action="الخاص" actionTo="/private" />
+      <SectionTitle title="الأصدقاء" action="إدارة" actionTo="/friends" />
       <div className="friends-row" aria-label="الأصدقاء">
         {data?.friends.slice(0,8).map((friend)=>(
-          <div className="friend-mini" key={friend.id}>
+          <Link className="friend-mini link-reset" to={'/profiles/'+encodeURIComponent(friend.username)} key={friend.id}>
             <Avatar name={friend.displayName} gender={genderToUi(friend.gender)} />
             <span>{friend.displayName}</span>
-          </div>
+          </Link>
         ))}
         {!resource.loading && !data?.friends.length?<span className="muted">ما عندكش أصدقاء توا.</span>:null}
       </div>

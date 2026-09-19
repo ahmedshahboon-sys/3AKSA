@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ChatMessage, Room, TvChannel } from '@3aksa/api-client';
 import { api, realtime } from '../runtime';
 import { useSession } from '../session';
@@ -203,6 +203,14 @@ export function LiveRoomChatScreen(){
     catch(error){setActionError(readableError(error));}
   }
 
+  async function blockRoomMember(username:string){
+    if(!window.confirm(`حظر @${username} وإلغاء العلاقة والتواصل المباشر؟`))return;
+    setActionError('');
+    try{
+      await api.blockUser(username);
+      setMessages((items)=>items.filter((item)=>item.sender?.username!==username));
+    }catch(error){setActionError(readableError(error));}
+  }
   async function shareRoom(){
     const url=window.location.href;
     try{
@@ -262,6 +270,7 @@ export function LiveRoomChatScreen(){
                 <div className="message-actions">
                   <button type="button" className={message.reactions?.like.reacted?'active':''} onClick={()=>void toggleLike(message)}>❤️ {message.reactions?.like.count??0}</button>
                   {(mine||room.viewerRole!=='viewer')?<button type="button" onClick={()=>void removeMessage(message.id)}>حذف</button>:null}
+                  {!mine&&message.sender?.username?<><Link className="link-reset" to={'/profiles/'+encodeURIComponent(message.sender.username)}>الملف</Link><Link className="link-reset" to={'/profiles/'+encodeURIComponent(message.sender.username)+'?report=1'}>بلاغ</Link><button type="button" onClick={()=>void blockRoomMember(message.sender!.username)}>حظر</button></>:null}
                 </div>
               </div>
             </article>

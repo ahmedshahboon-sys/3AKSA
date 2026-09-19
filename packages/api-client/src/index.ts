@@ -68,6 +68,16 @@ export type Profile = {
   bio: string | null;
 };
 
+export type FriendRequest = {
+  id:string;
+  direction:'incoming'|'outgoing';
+  status:'pending';
+  createdAt:string;
+  user:{username:string;displayName:string};
+};
+
+export type ReportReason='spam'|'harassment'|'impersonation'|'inappropriate'|'other';
+
 export type NearbyPerson = {
   id: string;
   username: string;
@@ -508,11 +518,45 @@ export class ApiClient {
   }
 
   friendRequests() {
-    return this.request<{ requests: unknown[] }>('/friends/requests');
+    return this.request<{ requests: FriendRequest[] }>('/friends/requests');
   }
 
   createFriendRequest(username: string) {
-    return this.request<{ request: unknown }>('/friends/requests', { method: 'POST', body: JSON.stringify({ username }) });
+    return this.request<{ request: {id:string} }>('/friends/requests', { method: 'POST', body: JSON.stringify({ username }) });
+  }
+
+  acceptFriendRequest(requestId:string){
+    return this.request<{ok:true}>(`/friends/requests/${encodeURIComponent(requestId)}/accept`,{method:'POST'});
+  }
+
+  rejectFriendRequest(requestId:string){
+    return this.request<{ok:true}>(`/friends/requests/${encodeURIComponent(requestId)}/reject`,{method:'POST'});
+  }
+
+  cancelFriendRequest(requestId:string){
+    return this.request<void>(`/friends/requests/${encodeURIComponent(requestId)}`,{method:'DELETE'});
+  }
+
+  removeFriend(username:string){
+    return this.request<void>(`/friends/${encodeURIComponent(username)}`,{method:'DELETE'});
+  }
+
+  blockedUsers(){
+    return this.request<{blocked:Profile[]}>('/blocks');
+  }
+
+  blockUser(username:string){
+    return this.request<{ok:true}>('/blocks',{method:'POST',body:JSON.stringify({username})});
+  }
+
+  unblockUser(username:string){
+    return this.request<void>(`/blocks/${encodeURIComponent(username)}`,{method:'DELETE'});
+  }
+
+  reportUser(username:string,reason:ReportReason,details?:string){
+    return this.request<{report:{id:string;createdAt:string}}>('/reports',{
+      method:'POST',body:JSON.stringify({username,reason,details})
+    });
   }
 
   updateNearbyLocation(latitude: number, longitude: number, accuracyM?: number) {
