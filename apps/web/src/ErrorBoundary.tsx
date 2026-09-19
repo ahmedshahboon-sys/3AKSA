@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { captureClientError } from './telemetry';
 
 type Props={children:ReactNode};
 type State={error:Error|null};
@@ -11,6 +12,7 @@ export class AppErrorBoundary extends Component<Props,State>{
   }
 
   componentDidCatch(error:Error,info:ErrorInfo){
+    captureClientError('react_error_boundary',{errorName:error.name,errorCode:error.message.slice(0,120),component:'AppErrorBoundary'});
     if(import.meta.env.DEV){
       console.error('3AKSA UI boundary caught an error',error,info.componentStack);
     }

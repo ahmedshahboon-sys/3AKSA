@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type {
-  AdminAuditEntry, AdminOverview, AdminRecoveryRequest, AdminReport, AdminTopup, AdminUserDetail, AdminUserSummary
+  AdminAuditEntry, AdminOverview, AdminRecoveryRequest, AdminReport, AdminTopup, AdminUserDetail, AdminUserSummary,
+  FeatureSnapshot,TelemetryDashboardRow
 } from '@3aksa/api-client';
 import { api } from '../runtime';
 import { readableError, useApiResource } from '../useApiResource';
@@ -14,6 +15,8 @@ type AdminData={
   topups:AdminTopup[];
   audit:AdminAuditEntry[];
   recovery:AdminRecoveryRequest[];
+  flags:Array<{key:keyof FeatureSnapshot;enabled:boolean;metadata:Record<string,unknown>;updatedAt:string}>;
+  telemetry:TelemetryDashboardRow[];
 };
 
 export function LiveAdminScreen(){
@@ -34,13 +37,15 @@ export function LiveAdminScreen(){
 
   async function load(code=unlockedCode){
     if(!code)return;
-    const [overview,users,reports,topups,audit,recovery]=await Promise.all([
+    const [overview,users,reports,topups,audit,recovery,flags,telemetry]=await Promise.all([
       api.adminOverview(code),api.adminUsers(code,{limit:50}),api.adminReports(code),
-      api.adminTopups(code),api.adminAudit(code,100),api.adminRecoveryRequests(code)
+      api.adminTopups(code),api.adminAudit(code,100),api.adminRecoveryRequests(code),
+      api.adminFeatureFlags(code),api.adminTelemetry(code,50)
     ]);
     setData({
       overview:overview.overview,users:users.users,reports:reports.reports,
-      topups:topups.topups,audit:audit.audit,recovery:recovery.requests
+      topups:topups.topups,audit:audit.audit,recovery:recovery.requests,
+      flags:flags.flags,telemetry:telemetry.errors
     });
   }
 
@@ -66,12 +71,29 @@ export function LiveAdminScreen(){
     try{
       const code=mfaCode.trim();
       const overview=await api.adminOverview(code);
-      const [users,reports,topups,audit,recovery]=await Promise.all([
-        api.adminUsers(code,{limit:50}),api.adminReports(code),api.adminTopups(code),api.adminAudit(code,100),api.adminRecoveryRequests(code)
+      const [users,reports,topups,audit,recovery,flags,telemetry]=await Promise.all([
+        api.adminUsers(code,{limit:50}),api.adminReports(code),api.adminTopups(code),api.adminAudit(code,100),
+        api.adminRecoveryRequests(code),api.adminFeatureFlags(code),api.adminTelemetry(code,50)
       ]);
       setUnlockedCode(code);
-      setData({overview:overview.overview,users:users.users,reports:reports.reports,topups:topups.topups,audit:audit.audit,recovery:recovery.requests});
+      setData({
+        overview:overview.overview,users:users.users,reports:reports.reports,topups:topups.topups,
+        audit:audit.audit,recovery:recovery.requests,flags:flags.flags,telemetry:telemetry.errors
+      });
     }catch(err){setError(readableError(err));}finally{setBusy(false);}
+  }
+
+  async function toggleFeature(key:keyof FeatureSnapshot,enabled:boolean){
+    if(!unlockedCode)return;
+    setBusy(true);setError('');setNotice('');
+    try{
+      await api.adminUpdateFeatureFlag(unlockedCode,key,enabled);
+      setData(current=>current?{
+        ...current,flags:current.flags.map(flag=>flag.key===key?{...flag,enabled}:flag)
+      }:current);
+      setNotice(`Feature flag ${String(key)} = ${enabled?'ON':'OFF'} ✅`);
+    }catch(err){setError(readableError(err));}
+    finally{setBusy(false);}
   }
 
   async function searchUsers(event:FormEvent<HTMLFormElement>){
@@ -212,6 +234,15 @@ export function LiveAdminScreen(){
       <article><small>طلبات الشحن</small><strong>{data.overview.pendingTopups}</strong></article>
       <article><small>الغرف النشطة</small><strong>{data.overview.activeRooms}</strong></article>
     </div>
+
+    <SectionTitle title="Feature Flags"/>
+    <section className="preference-panel admin-feature-flags">
+      {data.flags.map(flag=><label key={flag.key}><span><b>{flag.key}</b><small>{flag.enabled?'ON':'OFF'} · {relativeTime(flag.updatedAt)}</small></span><input type="checkbox" checked={flag.enabled} disabled={busy} onChange={e=>void toggleFeature(flag.key,e.target.checked)}/></label>)}
+      <small className="muted">Safe default عند فشل endpoint هو OFF للميزات الاختيارية، بينما Core chat يظل شغال.</small>
+    </section>
+
+    <SectionTitle title="Telemetry آخر 24 ساعة"/>
+    <div className="settings-list">{data.telemetry.length?data.telemetry.map((row,index)=><article className="setting-static" key={row.error+row.version+row.platform+index}><span><b>{row.error}</b><small>{row.platform} · v{row.version} · {row.frequency} مرة</small><small>{relativeTime(row.firstSeen)} → {relativeTime(row.lastSeen)}</small></span></article>):<div className="empty-state-inline">ما فيش أخطاء Telemetry متاحة.</div>}</div>
 
     <SectionTitle title="إدارة المستخدمين"/>
     <form className="live-form admin-inline-form" onSubmit={searchUsers}>

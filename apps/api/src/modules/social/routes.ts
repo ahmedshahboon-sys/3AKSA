@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../../db.js';
+import { consumeRateLimit } from '../../rate-limit.js';
 import { authenticateRequest, type AuthenticatedUser } from '../auth/session.js';
-import { normalizeUsername } from '../auth/security.js';
+import { isOwnerUsername,normalizeUsername,usernameReservationKey,verifyPassword } from '../auth/security.js';
 import { createNotification } from '../notifications/service.js';
 
 type SocialUserRow = {
@@ -14,6 +15,9 @@ type SocialUserRow = {
   bio: string | null;
   nearby_enabled: boolean;
   mutual_suggestions_enabled: boolean;
+  language: 'ar'|'en';
+  profile_visibility: 'public'|'friends';
+  nearby_consent_at: Date|null;
   frame_code?: string | null;
   badge_code?: string | null;
   badge_name?: string | null;
@@ -39,7 +43,12 @@ type ProfilePatchBody = {
   bio?: string | null;
   nearbyEnabled?: boolean;
   mutualSuggestionsEnabled?: boolean;
+  language?: 'ar'|'en';
+  profileVisibility?: 'public'|'friends';
+  nearbyConsent?: boolean;
 };
+
+type DeleteAccountBody={password?:string;confirmation?:string};
 
 type UsernameBody = { username?: string };
 type ReportBody = UsernameBody & {
@@ -71,6 +80,7 @@ function publicProfileDto(user: SocialUserRow) {
 async function lookupActiveUser(username: string): Promise<SocialUserRow | null> {
   const result = await query<SocialUserRow>(
     `SELECT u.id,u.username,u.display_name,u.gender,u.bio,u.nearby_enabled,u.mutual_suggestions_enabled,
+            u.language,u.profile_visibility,u.nearby_consent_at,
             c.frame_code,c.badge_code,c.badge_name
      FROM users u LEFT JOIN user_public_cosmetics c ON c.user_id=u.id
      WHERE u.username_normalized = $1 AND u.status = 'active'
@@ -90,6 +100,12 @@ async function blockedEitherDirection(userA: string, userB: string): Promise<boo
     [userA, userB]
   );
   return result.rowCount === 1;
+}
+
+async function areFriends(userA:string,userB:string){
+  const [low,high]=orderedFriendIds(userA,userB);
+  const result=await query('SELECT 1 FROM friendships WHERE user_low_id=$1 AND user_high_id=$2 LIMIT 1',[low,high]);
+  return result.rowCount===1;
 }
 
 function orderedFriendIds(userA: string, userB: string): [string, string] {
@@ -136,6 +152,7 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
 
     const result = await query<SocialUserRow & { phone_e164: string }>(
       `SELECT u.id,u.username,u.display_name,u.phone_e164,u.gender,u.bio,u.nearby_enabled,u.mutual_suggestions_enabled,
+              u.language,u.profile_visibility,u.nearby_consent_at,
               c.frame_code,c.badge_code,c.badge_name
        FROM users u LEFT JOIN user_public_cosmetics c ON c.user_id=u.id
        WHERE u.id = $1 LIMIT 1`,
@@ -147,7 +164,10 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
         ...publicProfileDto(user),
         phone: user.phone_e164,
         nearbyEnabled: user.nearby_enabled,
-        mutualSuggestionsEnabled: user.mutual_suggestions_enabled
+        mutualSuggestionsEnabled: user.mutual_suggestions_enabled,
+        language:user.language,
+        profileVisibility:user.profile_visibility,
+        nearbyConsentAt:user.nearby_consent_at
       }
     });
   });
@@ -160,6 +180,9 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
     const bio = request.body.bio === null ? null : request.body.bio?.trim();
     const nearbyEnabled = request.body.nearbyEnabled;
     const mutualSuggestionsEnabled = request.body.mutualSuggestionsEnabled;
+    const language=request.body.language;
+    const profileVisibility=request.body.profileVisibility;
+    const nearbyConsent=request.body.nearbyConsent;
 
     if (displayName !== undefined && (displayName.length < 2 || displayName.length > 80)) {
       return reply.code(400).send({ error: 'INVALID_DISPLAY_NAME' });
@@ -167,11 +190,20 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
     if (bio !== undefined && bio !== null && bio.length > 240) {
       return reply.code(400).send({ error: 'INVALID_BIO' });
     }
+    if(language!==undefined&&language!=='ar'&&language!=='en')return reply.code(400).send({error:'INVALID_LANGUAGE'});
+    if(profileVisibility!==undefined&&profileVisibility!=='public'&&profileVisibility!=='friends')return reply.code(400).send({error:'INVALID_PROFILE_VISIBILITY'});
+    if(nearbyEnabled===true&&nearbyConsent!==true){
+      const consent=await query<{nearby_consent_at:Date|null}>('SELECT nearby_consent_at FROM users WHERE id=$1 LIMIT 1',[auth.id]);
+      if(!consent.rows[0]?.nearby_consent_at)return reply.code(409).send({error:'NEARBY_CONSENT_REQUIRED'});
+    }
     if (
       nearbyEnabled === undefined &&
       mutualSuggestionsEnabled === undefined &&
       displayName === undefined &&
-      bio === undefined
+      bio === undefined &&
+      language===undefined &&
+      profileVisibility===undefined &&
+      nearbyConsent===undefined
     ) {
       return reply.code(400).send({ error: 'NO_PROFILE_CHANGES' });
     }
@@ -180,18 +212,24 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
       `UPDATE users
        SET display_name = COALESCE($2, display_name),
            bio = CASE WHEN $3::boolean THEN $4::varchar ELSE bio END,
-           nearby_enabled = COALESCE($5, nearby_enabled),
+           nearby_enabled = CASE WHEN $9::boolean=false THEN false ELSE COALESCE($5,nearby_enabled) END,
            mutual_suggestions_enabled = COALESCE($6, mutual_suggestions_enabled),
+           language=COALESCE($7,language),
+           profile_visibility=COALESCE($8,profile_visibility),
+           nearby_consent_at=CASE WHEN $9::boolean IS NULL THEN nearby_consent_at WHEN $9 THEN COALESCE(nearby_consent_at,now()) ELSE NULL END,
            updated_at = now()
        WHERE id = $1
-       RETURNING id, username, display_name, gender, bio, nearby_enabled, mutual_suggestions_enabled`,
+       RETURNING id, username, display_name, gender, bio, nearby_enabled, mutual_suggestions_enabled,language,profile_visibility,nearby_consent_at`,
       [
         auth.id,
         displayName ?? null,
         request.body.bio !== undefined,
         bio ?? null,
         nearbyEnabled ?? null,
-        mutualSuggestionsEnabled ?? null
+        mutualSuggestionsEnabled ?? null,
+        language??null,
+        profileVisibility??null,
+        nearbyConsent??null
       ]
     );
     const user = result.rows[0]!;
@@ -199,18 +237,69 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
       profile: {
         ...publicProfileDto(user),
         nearbyEnabled: user.nearby_enabled,
-        mutualSuggestionsEnabled: user.mutual_suggestions_enabled
+        mutualSuggestionsEnabled: user.mutual_suggestions_enabled,
+        language:user.language,
+        profileVisibility:user.profile_visibility,
+        nearbyConsentAt:user.nearby_consent_at
       }
     });
   });
 
+  app.post<{Body:DeleteAccountBody}>(`${prefix}/account/delete`,async(request,reply)=>{
+    const flood=await consumeRateLimit('account-delete-ip',`ip:${request.ip}`,20,60);
+    if(!flood.allowed){reply.header('Retry-After',String(flood.retryAfterSeconds));return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});}
+    const auth=await requireUser(request,reply);if(!auth)return;
+    const limit=await consumeRateLimit('account-delete',`user:${auth.id}`,5,600);
+    if(!limit.allowed){reply.header('Retry-After',String(limit.retryAfterSeconds));return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limit.retryAfterSeconds});}
+    if(request.body.confirmation!=='DELETE')return reply.code(400).send({error:'ACCOUNT_DELETE_CONFIRMATION_REQUIRED'});
+    const password=request.body.password??'';
+    const result=await query<{password_hash:string;username:string}>(
+      'SELECT password_hash,username FROM users WHERE id=$1 AND status=\'active\' LIMIT 1',[auth.id]
+    );
+    const row=result.rows[0];
+    if(!row||!(await verifyPassword(password,row.password_hash)))return reply.code(403).send({error:'INVALID_CREDENTIALS'});
+    if(isOwnerUsername(row.username))return reply.code(409).send({error:'OWNER_ACCOUNT_DELETE_PROTECTED'});
+    await withTransaction(async(client)=>{
+      await client.query(
+        `INSERT INTO reserved_usernames(username_key,reason)
+         VALUES($1,'reserved after self account deletion')
+         ON CONFLICT(username_key) DO UPDATE SET reason=EXCLUDED.reason`,
+        [usernameReservationKey(row.username)]
+      );
+      await client.query(
+        `INSERT INTO blocked_installations(installation_id,reason,blocked_by)
+         SELECT installation_id,'self account deletion',$1 FROM user_devices WHERE user_id=$1
+         ON CONFLICT(installation_id)
+         DO UPDATE SET reason=EXCLUDED.reason,blocked_at=now(),blocked_by=EXCLUDED.blocked_by`,
+        [auth.id]
+      );
+      await client.query('UPDATE user_devices SET blocked_at=now(),last_seen_at=now() WHERE user_id=$1',[auth.id]);
+      await client.query('UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1 AND revoked_at IS NULL',[auth.id]);
+      await client.query("UPDATE push_subscriptions SET enabled=false,last_error='ACCOUNT_DELETED',updated_at=now() WHERE user_id=$1",[auth.id]);
+      await client.query(
+        `UPDATE users SET status='deleted',nearby_enabled=false,nearby_consent_at=NULL,updated_at=now() WHERE id=$1`,
+        [auth.id]
+      );
+    });
+    return reply.send({deleted:true});
+  });
+
   app.get<{ Params: { username: string } }>(`${prefix}/profiles/:username`, async (request, reply) => {
+    const flood=await consumeRateLimit('profile-view-ip',`ip:${request.ip}`,240,60);
+    if(!flood.allowed){reply.header('Retry-After',String(flood.retryAfterSeconds));return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});}
     const auth = await requireUser(request, reply);
+    if(auth){
+      const limit=await consumeRateLimit('profile-view',`user:${auth.id}`,180,60);
+      if(!limit.allowed){reply.header('Retry-After',String(limit.retryAfterSeconds));return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limit.retryAfterSeconds});}
+    }
     if (!auth) return;
     const target = await lookupActiveUser(request.params.username);
     if (!target) return reply.code(404).send({ error: 'PROFILE_NOT_FOUND' });
-    if (target.id !== auth.id && (await blockedEitherDirection(auth.id, target.id))) {
-      return reply.code(404).send({ error: 'PROFILE_NOT_FOUND' });
+    if(target.id!==auth.id){
+      if(await blockedEitherDirection(auth.id,target.id))return reply.code(404).send({error:'PROFILE_NOT_FOUND'});
+      if(target.profile_visibility==='friends'&&!(await areFriends(auth.id,target.id))){
+        return reply.code(404).send({error:'PROFILE_NOT_FOUND'});
+      }
     }
     return reply.send({ profile: publicProfileDto(target) });
   });

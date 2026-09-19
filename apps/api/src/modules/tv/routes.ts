@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticateRequest } from '../auth/session.js';
+import { featureEnabled } from '../features/service.js';
 import {
   createDirectChannel,
   deleteAllTvChannels,
@@ -104,6 +105,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   const tvPrefix = `${options.basePath}/tv`;
 
   app.get<{ Querystring: ChannelListQuery }>(`${tvPrefix}/channels`, async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user = await requireUser(request, reply);
     if (!user) return;
 
@@ -120,6 +122,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   });
 
   app.get(`${tvPrefix}/admin/channels`, async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user = await requireUser(request, reply);
     if (!user) return;
     try {
@@ -130,6 +133,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   });
 
   app.post<{ Body: ChannelBody }>(`${tvPrefix}/admin/channels`, async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user = await requireUser(request, reply);
     if (!user) return;
 
@@ -157,6 +161,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   app.patch<{ Params: { channelId: string }; Body: ChannelBody }>(
     `${tvPrefix}/admin/channels/:channelId`,
     async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
       const user = await requireUser(request, reply);
       if (!user) return;
       if (!UUID_RE.test(request.params.channelId)) {
@@ -186,6 +191,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   app.delete<{ Params: { channelId: string } }>(
     `${tvPrefix}/admin/channels/:channelId`,
     async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
       const user = await requireUser(request, reply);
       if (!user) return;
       if (!UUID_RE.test(request.params.channelId)) {
@@ -200,6 +206,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   );
 
   app.delete(`${tvPrefix}/admin/channels`, async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user = await requireUser(request, reply);
     if (!user) return;
     if (request.headers['x-confirm-delete-all'] !== 'DELETE_ALL_TV_CHANNELS') {
@@ -213,6 +220,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   });
 
   app.put<{ Body: ReorderBody }>(`${tvPrefix}/admin/channels/order`, async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user = await requireUser(request, reply);
     if (!user) return;
     const ids = request.body.channelIds;
@@ -230,6 +238,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
     `${tvPrefix}/admin/imports/m3u`,
     { bodyLimit: 2_200_000 },
     async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
       const user = await requireUser(request, reply);
       if (!user) return;
 
@@ -262,6 +271,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   );
 
   app.get(`${tvPrefix}/admin/imports`, async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user = await requireUser(request, reply);
     if (!user) return;
     try {
@@ -274,6 +284,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   app.get<{ Params: { roomId: string } }>(
     `${options.basePath}/rooms/:roomId/tv`,
     async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
       const user = await requireUser(request, reply);
       if (!user) return;
       if (!UUID_RE.test(request.params.roomId)) {
@@ -290,6 +301,7 @@ export async function registerTvRoutes(app: FastifyInstance, options: { basePath
   app.patch<{ Params: { roomId: string }; Body: RoomTvBody }>(
     `${options.basePath}/rooms/:roomId/tv`,
     async (request, reply) => {
+      if(!(await featureEnabled('tv').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
       const user = await requireUser(request, reply);
       if (!user) return;
       if (!UUID_RE.test(request.params.roomId)) {

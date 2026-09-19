@@ -25,6 +25,8 @@ import { registerRoomRoutes } from './modules/rooms/routes.js';
 import { registerSocialRoutes } from './modules/social/routes.js';
 import { registerSuggestionRoutes } from './modules/social/suggestions.js';
 import { registerTvRoutes } from './modules/tv/routes.js';
+import { registerFeatureFlagRoutes } from './modules/features/routes.js';
+import { registerTelemetryRoutes } from './modules/telemetry/routes.js';
 import { registerRequestRateLimits } from './request-rate-limits.js';
 import { registerHttpSecurity } from './security-http.js';
 import { assertProductionSecurity } from './production-security.js';
@@ -51,6 +53,9 @@ export async function buildApp() {
     basePath: apiBasePath,
     version: env.APP_VERSION
   });
+
+  await registerFeatureFlagRoutes(app, { basePath: apiBasePath });
+  await registerTelemetryRoutes(app, { basePath: apiBasePath });
 
   await registerAuthRoutes(app, {
     basePath: apiBasePath

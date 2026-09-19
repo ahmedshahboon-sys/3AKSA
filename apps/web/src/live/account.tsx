@@ -9,6 +9,7 @@ import { Icon } from '../icons';
 import { type AppTheme, useAppTheme } from '../theme';
 import { LiveState, genderToUi, relativeTime } from './common';
 import { isNativeAndroid, nativeAppInfo, openExternalUrl } from '../native';
+import { getLanguage,setLanguage,t,type AppLanguage } from '../i18n';
 
 function parseLyd(value:string){
   const text=value.trim();
@@ -37,6 +38,7 @@ export function LiveAccountScreen(){
   const {theme,setTheme}=useAppTheme();
   const [editing,setEditing]=useState(false);
   const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
   const [busy,setBusy]=useState(false);
   const resource=useApiResource(async()=>{
     const [profile,wallet,equipment]=await Promise.all([api.profileMe(),api.wallet(),api.equipment()]);
@@ -72,6 +74,32 @@ export function LiveAccountScreen(){
     }catch(err){setError(readableError(err));}finally{setBusy(false);}
   }
 
+  async function updatePrivacy(patch:{
+    language?:AppLanguage;profileVisibility?:'public'|'friends';nearbyConsent?:boolean;
+  }){
+    setBusy(true);setError('');setNotice('');
+    try{
+      const response=await api.updateProfile(patch);
+      if(patch.language){
+        setLanguage(patch.language);
+        setNotice(patch.language==='en'?'Language updated ✅':'تم تحديث اللغة ✅');
+      }else setNotice('تم تحديث إعدادات الخصوصية ✅');
+      if(patch.language)window.location.reload();
+      else await resource.reload();
+    }catch(err){setError(readableError(err));}finally{setBusy(false);}
+  }
+
+  async function deleteAccount(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();setBusy(true);setError('');setNotice('');
+    const form=new FormData(event.currentTarget);
+    const confirmation=String(form.get('confirmation')??'').trim();
+    if(confirmation!=='DELETE'){setBusy(false);setError('اكتب DELETE بالحروف الكبيرة للتأكيد.');return;}
+    try{
+      await api.deleteAccount(String(form.get('password')??''));
+      await logout();
+    }catch(err){setError(readableError(err));setBusy(false);}
+  }
+
   const profile=resource.data?.profile;
   return (
     <main className="page-shell">
@@ -86,11 +114,32 @@ export function LiveAccountScreen(){
       <section className="account-shortcuts"><Link to="/notifications" className="link-reset"><Icon name="bell"/><span>الإشعارات</span></Link><Link to="/store" className="link-reset"><Icon name="store"/><span>مشترياتي</span></Link><Link to="/friends" className="link-reset"><span>👥</span><span>الأصدقاء</span></Link><Link to="/account/devices" className="link-reset"><span>📱</span><span>أجهزتي</span></Link><Link to="/account/prayer" className="link-reset"><span>🌙</span><span>الصلاة</span></Link><Link to="/download" className="link-reset"><span>⬇️</span><span>تنزيل عكسة</span></Link>{resource.data?.staffRoles.includes('super_admin')?<Link to="/admin" className="link-reset"><span>🛡️</span><span>الإدارة</span></Link>:null}{resource.data?.staffRoles.some((role)=>role==='super_admin'||role==='tv_admin')?<Link to="/admin/tv" className="link-reset"><span>📺</span><span>إدارة TV</span></Link>:null}{resource.data?.staffRoles.some((role)=>role==='super_admin'||role==='finance_admin')?<Link to="/admin/store" className="link-reset"><span>🛍️</span><span>إدارة المتجر</span></Link>:null}{resource.data?.staffRoles.some((role)=>role==='super_admin'||role==='release_admin')?<Link to="/admin/releases" className="link-reset"><span>🚀</span><span>إدارة الإصدارات</span></Link>:null}</section>
       {resource.data?.androidUpdate?<section className="notification-settings"><div><b>{resource.data.androidUpdate.required?'تحديث عكسة مطلوب':'في تحديث جديد لعكسة'}</b><small>الإصدار {resource.data.androidUpdate.release.versionName} متاح بدل {resource.data.androidUpdate.versionName}</small>{resource.data.androidUpdate.release.notes?<small>{resource.data.androidUpdate.release.notes}</small>:null}</div><button className="primary-button small" type="button" onClick={()=>void downloadAndroidUpdate()}>تحديث التطبيق</button></section>:null}
 
+      {error?<div className="live-error" role="alert">{error}</div>:null}
+      {notice?<div className="success-note" role="status">{notice}</div>:null}
+
+      <SectionTitle title={t('language')}/>
+      <section className="preference-panel">
+        <label><span>{t('language')}</span><select value={profile?.language??getLanguage()} disabled={busy} onChange={e=>void updatePrivacy({language:e.target.value as AppLanguage})}><option value="ar">{t('arabic')}</option><option value="en">{t('english')}</option></select></label>
+        <label><span>{t('profileVisibility')}</span><select value={profile?.profileVisibility??'public'} disabled={busy} onChange={e=>void updatePrivacy({profileVisibility:e.target.value as 'public'|'friends'})}><option value="public">{t('everyone')}</option><option value="friends">{t('friends')}</option></select></label>
+        <label><span>Nearby consent / موافقة القريبون</span><input type="checkbox" checked={Boolean(profile?.nearbyConsentAt)} disabled={busy} onChange={e=>void updatePrivacy({nearbyConsent:e.target.checked})}/></label>
+        <small className="muted">الموقع يُستخدم لميزة «القريبون» فقط عند تفعيلها ومنح الإذن.</small>
+      </section>
+
+      <SectionTitle title="القانون والدعم"/>
+      <section className="account-shortcuts legal-shortcuts"><Link to="/privacy" className="link-reset"><span>🔐</span><span>{t('privacy')}</span></Link><Link to="/terms" className="link-reset"><span>📄</span><span>{t('terms')}</span></Link><Link to="/about" className="link-reset"><span>ℹ️</span><span>{t('about')}</span></Link><Link to="/support" className="link-reset"><span>🛟</span><span>{t('support')}</span></Link></section>
+
       <SectionTitle title="الثيم"/>
       <div className="theme-grid">{themeOptions.map((option)=><button className={theme===option.value?'theme-option active':'theme-option'} key={option.value} onClick={()=>setTheme(option.value)} type="button">{option.label}</button>)}</div>
       <SectionTitle title="المفعّل من المتجر"/>
       <div className="settings-list">{resource.data?.equipment.length?resource.data.equipment.map((entry)=><div className="setting-static" key={entry.slot}><span>{entry.slot}</span><b>{entry.item.name}</b></div>):<div className="empty-state-inline">ما فيش تجهيزات مفعلة.</div>}</div>
       <button className="logout-button" type="button" onClick={()=>void logout()}>تسجيل الخروج</button>
+      <SectionTitle title={t('deleteAccount')}/>
+      <form className="live-form danger-zone" onSubmit={deleteAccount}>
+        <p className="muted">الحذف يلغي كل الجلسات، يعطل الإشعارات، يحجز Username ويمنع التركيبات المعروفة من إنشاء حساب جديد وفق سياسة المنصة.</p>
+        <label><span>كلمة المرور الحالية</span><input name="password" type="password" autoComplete="current-password" required/></label>
+        <label><span>اكتب DELETE للتأكيد</span><input name="confirmation" pattern="DELETE" autoComplete="off" required/></label>
+        <button className="logout-button" disabled={busy} type="submit">حذف الحساب نهائيًا</button>
+      </form>
     </main>
   );
 }

@@ -51,7 +51,7 @@ async function setNearby(app: Awaited<ReturnType<typeof buildApp>>, token: strin
     method: 'PATCH',
     url: '/3aksa/api/profile/me',
     headers: auth(token),
-    payload: { nearbyEnabled: enabled }
+    payload: { nearbyEnabled: enabled, ...(enabled ? { nearbyConsent: true } : {}) }
   });
   assert.equal(response.statusCode, 200, response.body);
 }

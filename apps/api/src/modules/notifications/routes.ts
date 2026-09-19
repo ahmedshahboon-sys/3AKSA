@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticateRequest } from '../auth/session.js';
+import { featureEnabled } from '../features/service.js';
 import {
   deletePushSubscription,
   getNotificationPreferences,
@@ -84,6 +85,7 @@ export async function registerNotificationRoutes(app:FastifyInstance,options:{ba
       patch[key]=value;
     }
     if(Object.keys(patch).length===0)return reply.code(400).send({error:'NO_NOTIFICATION_PREFERENCE_CHANGES'});
+    if(patch.pushEnabled===true&&!(await featureEnabled('push').catch(()=>false)))return reply.code(409).send({error:'FEATURE_DISABLED'});
     return reply.send({preferences:await updateNotificationPreferences(user.id,patch)});
   });
 
@@ -94,15 +96,18 @@ export async function registerNotificationRoutes(app:FastifyInstance,options:{ba
 
   app.get(`${prefix}/push/config`,async(request,reply)=>{
     const user=await requireUser(request,reply); if(!user)return;
+    if(!(await featureEnabled('push').catch(()=>false)))return reply.send({webPushConfigured:false,androidFcmConfigured:false,webPushVapidPublicKey:null});
     return reply.send(notificationPushConfig());
   });
 
   app.get(`${prefix}/push/subscriptions`,async(request,reply)=>{
     const user=await requireUser(request,reply); if(!user)return;
+    if(!(await featureEnabled('push').catch(()=>false)))return reply.send({subscriptions:[]});
     return reply.send({subscriptions:await listPushSubscriptions(user.id)});
   });
 
   app.post<{Body:PushBody}>(`${prefix}/push/subscriptions`,async(request,reply)=>{
+    if(!(await featureEnabled('push').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user=await requireUser(request,reply); if(!user)return;
     const installationId=request.body.installationId?.trim()??'';
     try{

@@ -25,7 +25,7 @@ export function LiveNearbyScreen(){
   async function setEnabled(enabled:boolean){
     setActionError('');
     try{
-      await api.updateProfile({nearbyEnabled:enabled});
+      await api.updateProfile({nearbyEnabled:enabled,...(enabled?{nearbyConsent:true}:{})});
       await resource.reload();
     }catch(error){setActionError(readableError(error));}
   }
@@ -34,7 +34,7 @@ export function LiveNearbyScreen(){
     setLocating(true);setActionError('');
     try{
       const profile=resource.data?.profile;
-      if(!profile?.nearbyEnabled)await api.updateProfile({nearbyEnabled:true});
+      if(!profile?.nearbyEnabled)await api.updateProfile({nearbyEnabled:true,nearbyConsent:true});
       const position=await new Promise<GeolocationPosition>((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,()=>reject(new Error('GEOLOCATION_DENIED')),{enableHighAccuracy:true,timeout:15000,maximumAge:60_000}));
       await api.updateNearbyLocation(position.coords.latitude,position.coords.longitude,Math.round(position.coords.accuracy));
       await api.resolvePrayerReference(position.coords.latitude,position.coords.longitude).catch(()=>undefined);

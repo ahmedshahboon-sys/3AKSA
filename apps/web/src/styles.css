@@ -407,3 +407,19 @@ h3 { margin: 0; font-size: .96rem; }
   .install-hero { align-items:flex-start; flex-wrap:wrap; }
   .install-hero > .secondary-button { width:100%; text-align:center; }
 }
+
+/* Group 7 — privacy, legal, i18n and observability */
+.language-switch { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:4px; border:1px solid var(--border); border-radius:14px; background:var(--elevated); }
+.language-switch button { min-height:38px; border:0; border-radius:10px; background:transparent; color:var(--muted); font:inherit; }
+.language-switch button.active { background:var(--card); color:var(--text); box-shadow:var(--shadow); }
+.auth-legal-links,.legal-links { display:flex; flex-wrap:wrap; justify-content:center; gap:10px 14px; font-size:.68rem; }
+.auth-legal-links a,.legal-links a { color:var(--muted); text-decoration:none; }
+.auth-legal-links a:hover,.legal-links a:hover { color:var(--primary); text-decoration:underline; }
+.legal-page { width:min(100% - 24px,820px); margin:0 auto; padding:calc(18px + env(safe-area-inset-top)) 0 calc(30px + env(safe-area-inset-bottom)); }
+.legal-card { display:grid; gap:12px; padding:22px; border:1px solid var(--border); border-radius:22px; background:var(--card); box-shadow:var(--shadow); }
+.legal-card h1 { margin:0; font-size:1.45rem; }
+.legal-copy { display:grid; gap:10px; }
+.legal-copy p { margin:0; color:var(--muted); line-height:1.85; font-size:.82rem; }
+.legal-shortcuts { margin-bottom:6px; }
+.admin-feature-flags label > span { display:grid; gap:2px; }
+.admin-feature-flags label small { color:var(--muted); font-size:.58rem; }

@@ -65,6 +65,7 @@ test('social lifecycle: profile -> request -> friendship -> block -> report', as
         displayName: 'أليس الجديدة',
         bio: 'نبذة اختبارية',
         nearbyEnabled: true,
+        nearbyConsent: true,
         mutualSuggestionsEnabled: false
       }
     });

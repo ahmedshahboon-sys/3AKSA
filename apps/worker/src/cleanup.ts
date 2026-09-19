@@ -69,6 +69,29 @@ async function purgeMessageTable(
   return deletedTotal;
 }
 
+async function purgeExpiredTelemetry(options:CleanupOptions){
+  const batchSize=options.batchSize??500;
+  let deletedTotal=0;
+  while(!(options.shouldStop?.()??false)){
+    const removed=await options.db.query<{id:string}>(
+      `WITH doomed AS (
+         SELECT id FROM telemetry_events
+         WHERE expires_at<=now()
+         ORDER BY expires_at
+         LIMIT $1
+       )
+       DELETE FROM telemetry_events t
+       USING doomed d
+       WHERE t.id=d.id
+       RETURNING t.id`,
+      [batchSize]
+    );
+    deletedTotal+=removed.rowCount??0;
+    if((removed.rowCount??0)<batchSize)break;
+  }
+  return deletedTotal;
+}
+
 async function purgeExpiredNotifications(options:CleanupOptions){
   const batchSize=options.batchSize??500;
   let deletedTotal=0;
@@ -96,10 +119,12 @@ export async function purgeExpiredEphemeralData(options:CleanupOptions){
   const roomDeleted=await purgeMessageTable('room_messages',options);
   const privateDeleted=await purgeMessageTable('private_messages',options);
   const notificationDeleted=await purgeExpiredNotifications(options);
+  const telemetryDeleted=await purgeExpiredTelemetry(options);
   return {
     roomDeleted,
     privateDeleted,
     notificationDeleted,
-    deleted:roomDeleted+privateDeleted+notificationDeleted
+    telemetryDeleted,
+    deleted:roomDeleted+privateDeleted+notificationDeleted+telemetryDeleted
   };
 }
