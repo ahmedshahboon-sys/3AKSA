@@ -95,6 +95,7 @@ export async function registerTelemetryRoutes(app:FastifyInstance,options:{baseP
   );
 
   app.get<{Querystring:{limit?:string}}>(`${options.basePath}/admin/telemetry`,async(request,reply)=>{
+    if(!(await flood(request,reply,'admin-telemetry-route-ip',120)))return;
     const context=await telemetryAdmin(request,reply);if(!context)return;
     const raw=Number(request.query.limit??50);
     const limit=Number.isInteger(raw)?Math.min(Math.max(raw,1),100):50;
