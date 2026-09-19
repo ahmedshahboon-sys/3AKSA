@@ -9,6 +9,7 @@ fi
 ENV_DIR=/etc/3aksa
 ENV_FILE="${ENV_DIR}/3aksa.env"
 DB_PASSWORD_FILE="${ENV_DIR}/db-password"
+OWNER_CLAIM_FILE="${ENV_DIR}/owner-claim-secret"
 NETWORK="${THREEAKSA_DOCKER_NETWORK:-marbo3a_default}"
 
 install -d -m 700 "${ENV_DIR}"
@@ -34,6 +35,16 @@ SESSION_SECRET="$(openssl rand -hex 48)"
 PASSWORD_PEPPER="$(openssl rand -hex 48)"
 ADMIN_MFA_ENCRYPTION_KEY="$(openssl rand -hex 48)"
 PUSH_ENCRYPTION_KEY="$(openssl rand -hex 48)"
+if [ ! -s "${OWNER_CLAIM_FILE}" ]; then
+  umask 077
+  openssl rand -hex 32 > "${OWNER_CLAIM_FILE}"
+fi
+chmod 600 "${OWNER_CLAIM_FILE}"
+OWNER_CLAIM_SECRET="$(tr -d '\r\n' < "${OWNER_CLAIM_FILE}")"
+if ! [[ "${OWNER_CLAIM_SECRET}" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "Unexpected owner claim secret format in ${OWNER_CLAIM_FILE}" >&2
+  exit 1
+fi
 
 umask 077
 cat > "${ENV_FILE}.tmp" <<EOF
@@ -57,6 +68,8 @@ STORAGE_LOCAL_ROOT=/var/lib/3aksa/storage
 
 SESSION_SECRET=${SESSION_SECRET}
 PASSWORD_PEPPER=${PASSWORD_PEPPER}
+OWNER_USERNAME=ahmed
+OWNER_CLAIM_SECRET=${OWNER_CLAIM_SECRET}
 ADMIN_MFA_ENCRYPTION_KEY=${ADMIN_MFA_ENCRYPTION_KEY}
 PUSH_ENCRYPTION_KEY=${PUSH_ENCRYPTION_KEY}
 WEB_ALLOWED_ORIGINS=https://marbo3a.ly,https://www.marbo3a.ly
@@ -67,4 +80,6 @@ install -m 600 "${ENV_FILE}.tmp" "${ENV_FILE}"
 rm -f "${ENV_FILE}.tmp"
 
 echo "Created ${ENV_FILE} with fresh production secrets."
+echo "Owner bootstrap is enabled for username: ahmed"
+echo "Owner claim secret is stored at ${OWNER_CLAIM_FILE}; it was not printed."
 echo "Trusted Docker proxy gateway: ${GATEWAY}"
