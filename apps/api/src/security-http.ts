@@ -5,7 +5,7 @@ import { sessionCookieTokenFromHeader } from './modules/auth/cookie.js';
 const SAFE_METHODS=new Set(['GET','HEAD','OPTIONS']);
 const DEFAULT_DEV_ORIGINS=['http://localhost:5173','http://127.0.0.1:5173'];
 
-function allowedOrigins(){
+export function trustedWebOrigins(){
   const configured=env.WEB_ALLOWED_ORIGINS?.split(',').map((value)=>value.trim()).filter(Boolean)??[];
   if(env.NODE_ENV==='production'&&configured.length===0){
     throw new Error('WEB_ALLOWED_ORIGINS_REQUIRED');
@@ -13,8 +13,12 @@ function allowedOrigins(){
   return new Set(configured.length?configured:DEFAULT_DEV_ORIGINS);
 }
 
+export function webOriginAllowed(origin:string|undefined){
+  return Boolean(origin&&trustedWebOrigins().has(origin.trim()));
+}
+
 export function registerHttpSecurity(app:FastifyInstance){
-  const trustedOrigins=allowedOrigins();
+  const trustedOrigins=trustedWebOrigins();
 
   app.addHook('preHandler',async(request,reply)=>{
     if(SAFE_METHODS.has(request.method))return;
