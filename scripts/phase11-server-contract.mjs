@@ -34,6 +34,7 @@ must(compose,'/app/apps/worker/node_modules/.bin/tsx','direct worker runtime');
 
 must(dockerfile,'pnpm install --frozen-lockfile','deterministic image install');
 must(dockerfile,'dumb-init','signal handling');
+must(dockerfile,'apk add --no-cache bash dumb-init','bash required by visual asset scripts');
 
 must(envScript,'API_BIND_MODE=container','container bind declaration');
 must(envScript,'TRUSTED_PROXY_CIDRS=127.0.0.1,::1,','trusted Docker gateway');
@@ -52,6 +53,9 @@ must(nginxInstall,'systemctl reload nginx','graceful Nginx reload');
 must(deploy,'/3aksa/api/ready','readiness gate');
 must(deploy,'docker compose -f "${COMPOSE}" --profile ops run --rm migrate','migration gate');
 must(deploy,'--profile build run --rm web-build','subpath web build');
+must(compose,'set -eu','fail-fast Web/PWA build');
+must(compose,'test -f apps/web/dist/index.html','Web/PWA dist verification');
+must(deploy,"CURRENT_VERSION=\"$(git rev-parse --short=12 HEAD)\"",'deployment version refresh');
 
 must(productionSecurity,"API_BIND_MODE==='loopback'",'explicit bind policy');
 must(app,'env.TRUSTED_PROXY_CIDRS','configurable trusted proxies');

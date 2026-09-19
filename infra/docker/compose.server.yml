@@ -72,9 +72,12 @@ services:
       - sh
       - -lc
       - |
+        set -eu
         pnpm --filter @3aksa/web build
+        test -f apps/web/dist/index.html
         rm -rf /web-dist/*
         cp -a apps/web/dist/. /web-dist/
+        test -f /web-dist/index.html
         find /web-dist -type d -exec chmod 755 {} +
         find /web-dist -type f -exec chmod 644 {} +
 
