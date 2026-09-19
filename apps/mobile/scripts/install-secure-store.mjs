@@ -32,12 +32,16 @@ if(!activity.includes('registerPlugin(SecureStorePlugin.class)')){
 }
 
 let xml=await fs.readFile(manifest,'utf8');
-if(!xml.includes('android:allowBackup="false"')){
-  xml=xml.replace(
-    '<application',
-    '<application android:allowBackup="false" android:usesCleartextTraffic="false"'
-  );
-  await fs.writeFile(manifest,xml,'utf8');
+if(/android:allowBackup="[^"]*"/.test(xml)){
+  xml=xml.replace(/android:allowBackup="[^"]*"/,'android:allowBackup="false"');
+}else{
+  xml=xml.replace('<application','<application android:allowBackup="false"');
 }
+if(/android:usesCleartextTraffic="[^"]*"/.test(xml)){
+  xml=xml.replace(/android:usesCleartextTraffic="[^"]*"/,'android:usesCleartextTraffic="false"');
+}else{
+  xml=xml.replace('<application','<application android:usesCleartextTraffic="false"');
+}
+await fs.writeFile(manifest,xml,'utf8');
 
 console.log('Installed 3AKSA Android SecureStore plugin and hardened generated manifest.');
