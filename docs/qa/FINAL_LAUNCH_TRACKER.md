@@ -175,7 +175,7 @@ Closure:
 - Production install/download behavior remains external.
 
 ### GROUP 7 — PRIVACY / SETTINGS / I18N / TELEMETRY / FEATURE FLAGS
-Status: **IN PROGRESS**
+Status: **COMPLETE**
 
 Changes:
 - Added public Privacy Policy, Terms, About and Support pages available before login.
@@ -190,12 +190,21 @@ Changes:
 - Added MFA/rate-limited Admin Feature Flag controls and aggregated 24h Telemetry dashboard.
 - Added migration `0022_privacy_observability_flags.sql` and `tests/group7-privacy-observability.test.mjs`.
 
-Pending:
-- Full typecheck/build/integration/CodeQL/Android RC on Group 7 PR.
+Closure:
+- PR #27 merged to develop at `1d8f2c7bffa0485474562d920ba6b9ecf2445787`.
+- All applicable Phase CI, Phase 9 QA, CodeQL Security and Android Release Candidate: PASS.
 - Production migration/worker/privacy behavior remains external.
 
 ### GROUP 8 — UX / ACCESSIBILITY / RESPONSIVE / RESILIENCE
-Status: **NOT STARTED**
+Status: **IN PROGRESS**
+
+Group 8 implementation notes:
+- Home uses partial-success loading so rooms/friends/wallet/prayer/notifications fail independently instead of blanking the whole screen.
+- Added user-visible partial-data recovery and retry controls with live status semantics.
+- Non-home routes are code-split with React.lazy/Suspense; HLS engine loads only when an HLS stream is opened.
+- Live API resources retry automatically when connectivity returns.
+- Added coarse-pointer touch targets, stronger keyboard focus visibility, compact-phone layout hardening and preserved reduced-motion behavior.
+- Added `tests/group8-ux-performance.test.mjs`.
 
 ### GROUP 9 — SECURITY / DATA INTEGRITY / OPERATIONS
 Status: **NOT STARTED**
