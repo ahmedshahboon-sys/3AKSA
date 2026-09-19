@@ -1,6 +1,9 @@
 name: Trusted Release Build
 
 on:
+  push:
+    branches:
+      - release/1.0.1-public-beta
   workflow_dispatch:
     inputs:
       version_name:
@@ -41,11 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      VITE_PUBLIC_BASE_PATH: ${{ inputs.public_base_path }}
-      VITE_PUBLIC_APP_URL: ${{ inputs.public_app_url }}
-      VITE_API_BASE_URL: ${{ inputs.api_base_url }}
-      VITE_SOCKET_URL: ${{ inputs.socket_url }}
-      VITE_SOCKET_PATH: ${{ inputs.socket_path }}
+      VITE_PUBLIC_BASE_PATH: ${{ github.event_name == 'workflow_dispatch' && inputs.public_base_path || '/3aksa/' }}
+      VITE_PUBLIC_APP_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.public_app_url || 'https://marbo3a.ly/3aksa' }}
+      VITE_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.api_base_url || 'https://marbo3a.ly/3aksa/api' }}
+      VITE_SOCKET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.socket_url || 'https://marbo3a.ly' }}
+      VITE_SOCKET_PATH: ${{ github.event_name == 'workflow_dispatch' && inputs.socket_path || '/3aksa/socket.io' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,7 +65,7 @@ jobs:
       - name: Upload Web/PWA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 3aksa-web-${{ inputs.version_name }}
+          name: 3aksa-web-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}
           path: apps/web/dist
           if-no-files-found: error
           retention-days: 14
@@ -73,13 +76,13 @@ jobs:
     timeout-minutes: 30
     env:
       ANDROID_APP_ID: ly.threeaksa.app
-      ANDROID_VERSION_NAME: ${{ inputs.version_name }}
-      ANDROID_VERSION_CODE: ${{ inputs.version_code }}
+      ANDROID_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}
+      ANDROID_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '2' }}
       VITE_PUBLIC_BASE_PATH: /
-      VITE_PUBLIC_APP_URL: ${{ inputs.public_app_url }}
-      VITE_API_BASE_URL: ${{ inputs.api_base_url }}
-      VITE_SOCKET_URL: ${{ inputs.socket_url }}
-      VITE_SOCKET_PATH: ${{ inputs.socket_path }}
+      VITE_PUBLIC_APP_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.public_app_url || 'https://marbo3a.ly/3aksa' }}
+      VITE_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.api_base_url || 'https://marbo3a.ly/3aksa/api' }}
+      VITE_SOCKET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.socket_url || 'https://marbo3a.ly' }}
+      VITE_SOCKET_PATH: ${{ github.event_name == 'workflow_dispatch' && inputs.socket_path || '/3aksa/socket.io' }}
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -168,10 +171,10 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: 3aksa-android-release-${{ inputs.version_name }}
+          name: 3aksa-android-release-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}
           path: |
-            3aksa-${{ inputs.version_name }}-${{ inputs.version_code }}.apk
-            3aksa-${{ inputs.version_name }}-${{ inputs.version_code }}.apk.sha256
-            3aksa-${{ inputs.version_name }}-${{ inputs.version_code }}.apk.cert.txt
+            3aksa-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}-${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '2' }}.apk
+            3aksa-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}-${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '2' }}.apk.sha256
+            3aksa-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}-${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '2' }}.apk.cert.txt
           if-no-files-found: error
           retention-days: 30
