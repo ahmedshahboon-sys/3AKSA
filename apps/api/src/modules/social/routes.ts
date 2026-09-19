@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../../db.js';
+import { consumeRateLimit } from '../../rate-limit.js';
 import { authenticateRequest, type AuthenticatedUser } from '../auth/session.js';
 import { normalizeUsername,usernameReservationKey,verifyPassword } from '../auth/security.js';
 import { createNotification } from '../notifications/service.js';
@@ -99,6 +100,12 @@ async function blockedEitherDirection(userA: string, userB: string): Promise<boo
     [userA, userB]
   );
   return result.rowCount === 1;
+}
+
+async function areFriends(userA:string,userB:string){
+  const [low,high]=orderedFriendIds(userA,userB);
+  const result=await query('SELECT 1 FROM friendships WHERE user_low_id=$1 AND user_high_id=$2 LIMIT 1',[low,high]);
+  return result.rowCount===1;
 }
 
 function orderedFriendIds(userA: string, userB: string): [string, string] {
@@ -236,7 +243,11 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
   });
 
   app.post<{Body:DeleteAccountBody}>(`${prefix}/account/delete`,async(request,reply)=>{
+    const flood=await consumeRateLimit('account-delete-ip',`ip:${request.ip}`,20,60);
+    if(!flood.allowed){reply.header('Retry-After',String(flood.retryAfterSeconds));return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});}
     const auth=await requireUser(request,reply);if(!auth)return;
+    const limit=await consumeRateLimit('account-delete',`user:${auth.id}`,5,600);
+    if(!limit.allowed){reply.header('Retry-After',String(limit.retryAfterSeconds));return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limit.retryAfterSeconds});}
     if(request.body.confirmation!=='DELETE')return reply.code(400).send({error:'ACCOUNT_DELETE_CONFIRMATION_REQUIRED'});
     const password=request.body.password??'';
     const result=await query<{password_hash:string;username:string}>(
@@ -274,8 +285,11 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
     if (!auth) return;
     const target = await lookupActiveUser(request.params.username);
     if (!target) return reply.code(404).send({ error: 'PROFILE_NOT_FOUND' });
-    if (target.id !== auth.id && (await blockedEitherDirection(auth.id, target.id))) {
-      return reply.code(404).send({ error: 'PROFILE_NOT_FOUND' });
+    if(target.id!==auth.id){
+      if(await blockedEitherDirection(auth.id,target.id))return reply.code(404).send({error:'PROFILE_NOT_FOUND'});
+      if(target.profile_visibility==='friends'&&!(await areFriends(auth.id,target.id))){
+        return reply.code(404).send({error:'PROFILE_NOT_FOUND'});
+      }
     }
     return reply.send({ profile: publicProfileDto(target) });
   });
