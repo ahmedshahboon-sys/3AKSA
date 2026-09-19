@@ -35,6 +35,8 @@ export const serverEnvSchema = z.object({
   STORAGE_LOCAL_ROOT: z.string().default('./.data/storage'),
   SESSION_SECRET: z.string().min(32),
   PASSWORD_PEPPER: z.string().min(32),
+  OWNER_USERNAME: z.string().trim().regex(/^[A-Za-z0-9._-]{3,24}$/).default('ahmed'),
+  OWNER_CLAIM_SECRET: z.string().min(20).optional(),
   ADMIN_WHATSAPP_NUMBER: z.string().trim().max(32).default('0912992050'),
   ADMIN_MFA_ENCRYPTION_KEY: z.string().min(32).optional(),
   WEB_ALLOWED_ORIGINS: z.string().trim().min(1).optional(),
