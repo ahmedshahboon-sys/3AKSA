@@ -121,6 +121,25 @@ test('rooms lifecycle: policies -> favorite -> private invite -> moderator ban',
     });
     assert.equal(addModerator.statusCode, 201, addModerator.body);
 
+    const ownerManagement = await app.inject({
+      method: 'GET',
+      url: `/3aksa/api/rooms/${publicRoom.id}/management`,
+      headers: auth(ownerSession.accessToken)
+    });
+    assert.equal(ownerManagement.statusCode, 200, ownerManagement.body);
+    const ownerManagementBody = ownerManagement.json<{ management: { permissions: { owner: boolean; canManageModerators: boolean }; moderators: Array<{ username: string }> } }>().management;
+    assert.equal(ownerManagementBody.permissions.owner, true);
+    assert.equal(ownerManagementBody.permissions.canManageModerators, true);
+    assert.equal(ownerManagementBody.moderators.some((item) => item.username === boy.username), true);
+
+    const moderatorManagement = await app.inject({
+      method: 'GET',
+      url: `/3aksa/api/rooms/${publicRoom.id}/management`,
+      headers: auth(boySession.accessToken)
+    });
+    assert.equal(moderatorManagement.statusCode, 200, moderatorManagement.body);
+    assert.equal(moderatorManagement.json<{ management: { permissions: { owner: boolean; canModerate: boolean } } }>().management.permissions.owner, false);
+    assert.equal(moderatorManagement.json<{ management: { permissions: { canModerate: boolean } } }>().management.permissions.canModerate, true);
     const moderatorBan = await app.inject({
       method: 'POST',
       url: `/3aksa/api/rooms/${publicRoom.id}/bans`,
@@ -129,6 +148,14 @@ test('rooms lifecycle: policies -> favorite -> private invite -> moderator ban',
     });
     assert.equal(moderatorBan.statusCode, 201, moderatorBan.body);
 
+    const managementAfterBan = await app.inject({
+      method: 'GET',
+      url: `/3aksa/api/rooms/${publicRoom.id}/management`,
+      headers: auth(ownerSession.accessToken)
+    });
+    assert.equal(managementAfterBan.statusCode, 200, managementAfterBan.body);
+    const activeBans = managementAfterBan.json<{ management: { bans: Array<{ username: string; reason: string | null }> } }>().management.bans;
+    assert.equal(activeBans.some((item) => item.username === girl.username && item.reason === 'اختبار الحظر'), true);
     const girlBanned = await app.inject({
       method: 'POST',
       url: `/3aksa/api/rooms/${publicRoom.id}/join-check`,
@@ -166,6 +193,14 @@ test('rooms lifecycle: policies -> favorite -> private invite -> moderator ban',
     });
     assert.equal(invite.statusCode, 201, invite.body);
 
+    const privateManagement = await app.inject({
+      method: 'GET',
+      url: `/3aksa/api/rooms/${privateRoomId}/management`,
+      headers: auth(ownerSession.accessToken)
+    });
+    assert.equal(privateManagement.statusCode, 200, privateManagement.body);
+    const activeInvites = privateManagement.json<{ management: { invites: Array<{ username: string }> } }>().management.invites;
+    assert.equal(activeInvites.some((item) => item.username === girl.username), true);
     const visiblePrivate = await app.inject({
       method: 'GET',
       url: `/3aksa/api/rooms/${privateRoomId}`,

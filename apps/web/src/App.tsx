@@ -5,11 +5,13 @@ import { useSession } from './session';
 import { OfflineScreen } from './screens';
 import { LiveHomeScreen } from './live/home';
 import { LiveRoomsScreen, LiveRoomChatScreen } from './live/rooms';
+import { LiveRoomManageScreen } from './live/roomManage';
 import { LiveNearbyScreen } from './live/nearby';
 import { LivePrivateScreen, LiveConversationScreen, LiveNewConversationScreen } from './live/private';
 import { LiveAccountScreen, LiveWalletScreen, LiveStoreScreen } from './live/account';
 import { LiveDevicesScreen } from './live/devices';
 import { LiveTvScreen } from './live/tv';
+import { LiveTvAdminScreen } from './live/tvAdmin';
 import { LiveNotificationsScreen } from './live/notifications';
 import { LivePrayerSettingsScreen } from './live/prayer';
 import { LiveRealtimeEffects } from './live/realtimeEffects';
@@ -47,6 +49,7 @@ function AppShell() {
         <Route path="/" element={<LiveHomeScreen />} />
         <Route path="/rooms" element={<LiveRoomsScreen />} />
         <Route path="/rooms/:roomId" element={<LiveRoomChatScreen />} />
+        <Route path="/rooms/:roomId/manage" element={<LiveRoomManageScreen />} />
         <Route path="/nearby" element={<LiveNearbyScreen />} />
         <Route path="/friends" element={<LiveFriendsScreen />} />
         <Route path="/profiles/:username" element={<LiveProfileScreen />} />
@@ -61,6 +64,7 @@ function AppShell() {
         <Route path="/tv" element={<LiveTvScreen />} />
         <Route path="/notifications" element={<LiveNotificationsScreen />} />
         <Route path="/admin" element={<LiveAdminScreen />} />
+        <Route path="/admin/tv" element={<LiveTvAdminScreen />} />
         <Route path="/offline" element={<OfflineScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
