@@ -54,8 +54,16 @@ if [ -s "${ENV_FILE}" ]; then
     echo "Owner bootstrap is already configured."
     exit 0
   fi
+  if grep -q '^OWNER_USERNAME=' "${ENV_FILE}"; then
+    CURRENT_OWNER="$(grep '^OWNER_USERNAME=' "${ENV_FILE}" | tail -n1 | cut -d= -f2-)"
+    [ "${CURRENT_OWNER}" = "ahmed" ] || {
+      echo "Existing OWNER_USERNAME is not ahmed; refusing automatic owner-bootstrap change." >&2
+      exit 1
+    }
+  else
+    printf '\nOWNER_USERNAME=ahmed\n' >> "${ENV_FILE}"
+  fi
   OWNER_CLAIM_SECRET="$(provision_owner_claim)"
-  grep -q '^OWNER_USERNAME=' "${ENV_FILE}" || printf '\nOWNER_USERNAME=ahmed\n' >> "${ENV_FILE}"
   printf 'OWNER_CLAIM_SECRET=%s\n' "${OWNER_CLAIM_SECRET}" >> "${ENV_FILE}"
   chmod 600 "${ENV_FILE}"
   echo "Enabled one-time owner bootstrap for username ahmed without rotating existing secrets."
