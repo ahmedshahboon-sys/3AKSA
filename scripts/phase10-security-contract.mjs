@@ -17,6 +17,9 @@ const socket=read('apps/api/src/modules/realtime/socket.ts');
 const nativeTemplate=read('apps/mobile/native/SecureStorePlugin.java.template');
 const nativeInstaller=read('apps/mobile/scripts/install-secure-store.mjs');
 const nginx=read('infra/nginx/3aksa-subpath.conf.example');
+const apiUnit=read('infra/systemd/3aksa-api.service.example');
+const workerUnit=read('infra/systemd/3aksa-worker.service.example');
+const release=read('.github/workflows/trusted-release.yml');
 const publicRepo=read('docs/security/PUBLIC_REPO.md');
 
 mustNot(runtime,'3aksa:access-token','browser runtime');
@@ -44,6 +47,20 @@ must(nativeInstaller,'android:usesCleartextTraffic="false"','Android cleartext h
 must(nginx,'proxy_set_header X-Forwarded-For $remote_addr','spoof-resistant forwarded IP');
 must(nginx,"frame-ancestors 'none'",'static clickjacking protection');
 must(nginx,'Permissions-Policy','static permissions policy');
+
+for(const [name,unit] of [['api',apiUnit],['worker',workerUnit]]){
+  must(unit,'User=3aksa',`${name} unprivileged service`);
+  must(unit,'NoNewPrivileges=true',`${name} service hardening`);
+  must(unit,'ProtectSystem=strict',`${name} filesystem hardening`);
+  must(unit,'ReadWritePaths=/var/lib/3aksa',`${name} writable scope`);
+}
+
+must(release,'workflow_dispatch:','manual-only release trigger');
+mustNot(release,'pull_request:','release workflow');
+mustNot(release,'\npush:','release workflow');
+must(release,'ANDROID_KEYSTORE_BASE64','release signing secret');
+must(release,'apksigner','release signature verification');
+must(release,'pnpm install --frozen-lockfile','deterministic release install');
 
 must(publicRepo,'APK signing keystores/passwords','public repository secret policy');
 
