@@ -112,12 +112,22 @@ export function LiveConversationScreen(){
     setMessages((items)=>items.map((item)=>item.id===message.id?{...item,reactions:{like:{count:ack.like?.count??item.reactions?.like.count??0,reacted:!active}}}:item));
   }
 
+  async function blockPeer(){
+    const peer=resource.data?.conversation.peer;
+    if(!peer)return;
+    if(!window.confirm(`حظر @${peer.username} وإيقاف التواصل؟`))return;
+    setError('');
+    try{
+      await api.blockUser(peer.username);
+      navigate('/private',{replace:true});
+    }catch(err){setError(readableError(err));}
+  }
   if(resource.loading)return <main className="page-shell"><div className="live-loading">جاري فتح المحادثة...</div></main>;
   if(resource.error||!resource.data)return <main className="page-shell"><ScreenHeader title="الخاص" backTo="/private"/><div className="live-error">{resource.error||'المحادثة مش موجودة'}</div></main>;
   const chat=resource.data.conversation;
   return (
     <main className="page-shell chat-screen">
-      <ScreenHeader title={chat.peer.displayName} eyebrow={'@'+chat.peer.username} backTo="/private" trailing={<button className="icon-button compact" type="button" aria-label="المزيد"><Icon name="more"/></button>} />
+      <ScreenHeader title={chat.peer.displayName} eyebrow={'@'+chat.peer.username} backTo="/private" trailing={<div className="header-actions"><Link className="secondary-button link-reset" to={'/profiles/'+encodeURIComponent(chat.peer.username)}>الملف</Link><Link className="secondary-button link-reset" to={'/profiles/'+encodeURIComponent(chat.peer.username)+'?report=1'}>بلاغ</Link><button className="secondary-button" type="button" onClick={()=>void blockPeer()}>حظر</button></div>} />
       {error?<div className="live-error">{error}</div>:null}
       <section className="room-chat-feed private-feed">
         {messages.length?messages.map((message)=>{
