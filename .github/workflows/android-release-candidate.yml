@@ -54,6 +54,7 @@ jobs:
           pnpm typecheck
           node scripts/browser-fetch-contract.mjs
           node scripts/android-release-contract.mjs
+          node scripts/android-startup-safety-contract.mjs
           node scripts/check-visual-assets.mjs || bash scripts/prepare-visual-assets.sh
 
       - name: Build Android web assets
@@ -67,6 +68,15 @@ jobs:
           node scripts/install-secure-store.mjs
           node scripts/install-launcher-assets.mjs
           node scripts/set-android-version.mjs
+
+      - name: Verify generated Android permissions
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          for permission in RECORD_AUDIO ACCESS_COARSE_LOCATION ACCESS_FINE_LOCATION POST_NOTIFICATIONS; do
+            grep -q "android.permission.${permission}" "$MANIFEST"
+          done
 
       - name: Verify SecureStore registration order
         working-directory: apps/mobile
