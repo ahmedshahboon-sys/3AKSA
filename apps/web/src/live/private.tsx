@@ -65,6 +65,7 @@ export function LivePrivateScreen(){
 
 export function LiveConversationScreen(){
   const {conversationId=''}=useParams();
+  const navigate=useNavigate();
   const {user}=useSession();
   const [messages,setMessages]=useState<ChatMessage[]>([]);
   const [composer,setComposer]=useState('');
