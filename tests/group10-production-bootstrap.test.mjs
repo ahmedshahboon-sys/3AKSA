@@ -40,8 +40,8 @@ test('Group 10 deploy is preflighted and production-smoked',()=>{
   const smoke=read('infra/server/verify-production.sh');
   assert.ok(deploy.includes('security:preflight'));
   assert.ok(deploy.includes('verify-production.sh'));
-  assert.ok(smoke.includes('/api/health'));
-  assert.ok(smoke.includes('/api/ready'));
+  assert.ok(smoke.includes('API_URL'));\n  assert.ok(smoke.includes('${API_URL}/health'));
+  assert.ok(smoke.includes('${API_URL}/ready'));
   assert.ok(smoke.includes('transport=polling'));
   assert.ok(smoke.includes('content-security-policy'));
 });
