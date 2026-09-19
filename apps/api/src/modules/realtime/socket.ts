@@ -260,9 +260,16 @@ export function attachRealtime(app: FastifyInstance) {
           onlineCount: joined.onlineCount
         });
         if (!before.userIds.includes(user.id)) {
+          const cosmetics=await query<{entry_sound_code:string|null}>(
+            'SELECT entry_sound_code FROM user_public_cosmetics WHERE user_id=$1 LIMIT 1',
+            [user.id]
+          );
           io.to(roomChannel(room.id)).emit('room:member-joined', {
             roomId: room.id,
-            user: { id: user.id, username: user.username, displayName: user.display_name, gender: user.gender }
+            user: {
+              id:user.id,username:user.username,displayName:user.display_name,gender:user.gender,
+              entrySoundCode:cosmetics.rows[0]?.entry_sound_code??null
+            }
           });
         }
         safeAck(callback, { ok: true, roomId: room.id, onlineCount: joined.onlineCount });
