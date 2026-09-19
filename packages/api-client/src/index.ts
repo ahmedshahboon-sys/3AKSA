@@ -94,6 +94,31 @@ export type TvImportBatch = {
   createdAt:string;
 };
 
+export type FeatureSnapshot={
+  tv:boolean;
+  store:boolean;
+  paid_features:boolean;
+  telemetry:boolean;
+  push:boolean;
+};
+
+export type TelemetryEvent={
+  eventType:string;
+  route:string;
+  appVersion:string;
+  platform:'web'|'android';
+  context?:Record<string,string|number|boolean>;
+};
+
+export type TelemetryDashboardRow={
+  error:string;
+  frequency:number;
+  version:string;
+  platform:string;
+  firstSeen:string;
+  lastSeen:string;
+};
+
 export type UserCosmetics={
   frameCode:string|null;
   badgeCode:string|null;
@@ -101,12 +126,15 @@ export type UserCosmetics={
 };
 
 export type Profile = {
-  id: string;
-  username: string;
-  displayName: string;
-  gender: Gender;
-  bio: string | null;
+  id:string;
+  username:string;
+  displayName:string;
+  gender:Gender;
+  bio:string|null;
   cosmetics?:UserCosmetics;
+  language?:'ar'|'en';
+  profileVisibility?:'public'|'friends';
+  nearbyConsentAt?:string|null;
 };
 
 export type FriendRequest = {
@@ -603,16 +631,61 @@ export class ApiClient {
     );
   }
 
-  profileMe() {
-    return this.request<{ profile: Profile & { phone: string; nearbyEnabled: boolean; mutualSuggestionsEnabled: boolean } }>('/profile/me');
+  profileMe(){
+    return this.request<{profile:Profile&{
+      phone:string;nearbyEnabled:boolean;mutualSuggestionsEnabled:boolean;
+      language:'ar'|'en';profileVisibility:'public'|'friends';nearbyConsentAt:string|null;
+    }}>('/profile/me');
   }
 
   profile(username: string) {
     return this.request<{ profile: Profile }>(`/profiles/${encodeURIComponent(username)}`);
   }
 
-  updateProfile(input: { displayName?: string; bio?: string|null; nearbyEnabled?: boolean; mutualSuggestionsEnabled?: boolean }) {
-    return this.request<{ profile: Profile }>('/profile/me', { method: 'PATCH', body: JSON.stringify(input) });
+  updateProfile(input:{
+    displayName?:string;bio?:string|null;nearbyEnabled?:boolean;mutualSuggestionsEnabled?:boolean;
+    language?:'ar'|'en';profileVisibility?:'public'|'friends';nearbyConsent?:boolean;
+  }){
+    return this.request<{profile:Profile&{
+      nearbyEnabled:boolean;mutualSuggestionsEnabled:boolean;language:'ar'|'en';
+      profileVisibility:'public'|'friends';nearbyConsentAt:string|null;
+    }}>('/profile/me',{method:'PATCH',body:JSON.stringify(input)});
+  }
+
+  deleteAccount(password:string){
+    return this.request<{deleted:true}>('/account/delete',{
+      method:'POST',body:JSON.stringify({password,confirmation:'DELETE'})
+    });
+  }
+
+  featureFlags(){
+    return this.request<{flags:FeatureSnapshot}>('/app/feature-flags');
+  }
+
+  telemetryEvents(events:TelemetryEvent[]){
+    return this.request<{accepted:number}>('/telemetry/events',{
+      method:'POST',body:JSON.stringify({events})
+    });
+  }
+
+  adminFeatureFlags(mfaCode:string){
+    return this.request<{flags:Array<{key:keyof FeatureSnapshot;enabled:boolean;metadata:Record<string,unknown>;updatedAt:string}>}>('/admin/feature-flags',{
+      headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
+  }
+
+  adminUpdateFeatureFlag(mfaCode:string,key:keyof FeatureSnapshot,enabled:boolean){
+    return this.request<{flag:{key:keyof FeatureSnapshot;enabled:boolean;metadata:Record<string,unknown>;updatedAt:string}}>(
+      `/admin/feature-flags/${encodeURIComponent(key)}`,{
+        method:'PATCH',headers:{'X-Admin-Mfa-Code':mfaCode},body:JSON.stringify({enabled})
+      }
+    );
+  }
+
+  adminTelemetry(mfaCode:string,limit=50){
+    return this.request<{errors:TelemetryDashboardRow[]}>(withQuery('/admin/telemetry',{limit}),{
+      headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
   }
 
   friends() {
