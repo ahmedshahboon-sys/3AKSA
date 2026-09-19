@@ -39,9 +39,9 @@ export function LiveRoomsScreen(){
 
   const resource=useApiResource(async()=>{
     const response=await api.rooms({
-      search:query || undefined,
-      genderPolicy:filter==='everyone'||filter==='boys'||filter==='girls'?filter:undefined,
-      favoritesOnly:filter==='favorites'?true:undefined,
+      ...(query ? {search:query} : {}),
+      ...(filter==='everyone'||filter==='boys'||filter==='girls' ? {genderPolicy:filter} : {}),
+      ...(filter==='favorites' ? {favoritesOnly:true} : {}),
       sort:sort==='newest'?'newest':'alphabetical'
     });
     return response.rooms;
@@ -68,9 +68,10 @@ export function LiveRoomsScreen(){
     setCreateBusy(true);setCreateError('');
     const form=new FormData(event.currentTarget);
     try{
+      const description=String(form.get('description')??'').trim();
       const response=await api.createRoom({
         name:String(form.get('name')??'').trim(),
-        description:String(form.get('description')??'').trim() || undefined,
+        ...(description ? {description} : {}),
         visibility:String(form.get('visibility')??'public') as 'public'|'private',
         genderPolicy:String(form.get('genderPolicy')??'everyone') as Room['genderPolicy'],
         maxUsers:Number(form.get('maxUsers')??50)
@@ -154,7 +155,13 @@ export function LiveRoomChatScreen(){
       if(payload.roomId!==roomId)return;
       setMessages((current)=>current.map((item)=>item.id===payload.messageId?{...item,reactions:{like:{count:payload.count,reacted:item.reactions?.like.reacted??false}}}:item));
     });
-    const offTv=realtime.on('room:tv-state',(payload)=>{if(payload.roomId===roomId)setTv((current)=>({...current,...payload.tv} as RoomTvState));});
+    const offTv=realtime.on('room:tv-state',(payload)=>{
+      if(payload.roomId!==roomId)return;
+      setTv((current)=>{
+        const base:RoomTvState=current??{enabled:false,channel:null,updatedAt:null};
+        return {...base,...(payload.tv as Pick<RoomTvState,'enabled'|'channel'|'updatedAt'>)};
+      });
+    });
     void realtime.joinRoom(roomId).then((ack)=>{if(!ack.ok&&active)setActionError(readableError(new Error(String(ack.error??'REALTIME_ERROR'))));});
     return()=>{
       active=false;
@@ -207,7 +214,10 @@ export function LiveRoomChatScreen(){
   async function updateTv(channelId:string|null,enabled:boolean){
     const ack=await realtime.setRoomTv(roomId,{channelId,enabled}) as {ok?:boolean;error?:string;tv?:RoomTvState};
     if(!ack.ok){setActionError(ack.error??'TV_UPDATE_FAILED');return;}
-    if(ack.tv)setTv((current)=>({...current,...ack.tv}));
+    if(ack.tv)setTv((current)=>{
+      const base:RoomTvState=current??{enabled:false,channel:null,updatedAt:null};
+      return {...base,...ack.tv};
+    });
   }
 
   if(resource.loading)return <main className="page-shell"><div className="live-loading">جاري دخول الغرفة...</div></main>;
