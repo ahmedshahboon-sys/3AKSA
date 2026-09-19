@@ -100,7 +100,7 @@ Closure:
 - Production migration state remains external.
 
 ### GROUP 3 — SOCIAL / FRIENDS / BLOCK / REPORT
-Status: **IN PROGRESS**
+Status: **BLOCKED_EXTERNAL** (code/CI complete; production/two-account verification remains external)
 
 Changes:
 - Typed incoming/outgoing friend request lifecycle, accept/reject/cancel/remove-friend APIs.
@@ -110,12 +110,28 @@ Changes:
 - Authenticated rate-limit identity uses the session rather than shared NAT IP, with a separate IP flood ceiling.
 - Existing backend block behavior cancels friendship/pending requests and hides profiles in both directions.
 
-Pending:
-- Regression contract + CI/CodeQL.
+Closure:
+- PR #23 merged to develop at `27280182e82968d0e895029b220b31e29975d8f0`.
+- Phase 1–11 applicable CI, CodeQL and Android Release Candidate: PASS.
 - Production/two-account behavior verification remains external.
 
 ### GROUP 4 — ROOMS + ROOM ADMIN + TV
-Status: **NOT STARTED**
+Status: **IN PROGRESS**
+
+Changes:
+- Added manager-only room management snapshot with current moderators, active bans and active private-room invites.
+- Added owner room editing for name, description, visibility, gender policy, max users and open/closed state.
+- Added moderator add/remove UI for room owners.
+- Added permanent/timed room bans with reasons and unban controls.
+- Added private-room invite create/revoke UI with expiry choices.
+- Existing Redis presence enforcement verified: unique-user max capacity, heartbeat TTL, disconnect/leave cleanup.
+- Added complete TV Admin UI: channel list/add/edit/publish/hide/delete/delete-all, manual/alphabetical ordering, search/group filtering, M3U/M3U8 paste/file/URL import, rights attestation and import history.
+- Existing TV backend SSRF/DNS/private-address guards and playlist size/channel limits retained.
+- Room TV owner/moderator controls remain viewer read-only.
+
+Pending:
+- Group 4 regression/integration CI and CodeQL.
+- Production/two-account behavior verification remains external.
 
 ### GROUP 5 — WALLET / STORE / GIFTS / VISUAL ITEMS
 Status: **NOT STARTED**
