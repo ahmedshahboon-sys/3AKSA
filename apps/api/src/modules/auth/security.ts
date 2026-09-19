@@ -27,6 +27,22 @@ export function usernameReservationKey(value: string): string {
   return normalizeUsername(value).replace(/[._-]+/g, '');
 }
 
+export function isOwnerUsername(value: string): boolean {
+  return normalizeUsername(value) === normalizeUsername(env.OWNER_USERNAME);
+}
+
+export function ownerClaimConfigured(): boolean {
+  return Boolean(env.OWNER_CLAIM_SECRET);
+}
+
+export function verifyOwnerClaimSecret(value: string): boolean {
+  const expected = env.OWNER_CLAIM_SECRET;
+  if (!expected || !value) return false;
+  const expectedDigest = createHash('sha256').update(expected).digest();
+  const actualDigest = createHash('sha256').update(value).digest();
+  return timingSafeEqual(expectedDigest, actualDigest);
+}
+
 export function normalizePhone(value: string): string {
   const trimmed = value.trim();
   const hasPlus = trimmed.startsWith('+');
