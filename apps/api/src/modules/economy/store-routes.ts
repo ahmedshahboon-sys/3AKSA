@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticateRequest } from '../auth/session.js';
+import { openStoredFile } from '../../storage.js';
 import { createNotification } from '../notifications/service.js';
 import { formatLydFromMilli } from './service.js';
 import {
@@ -9,12 +10,13 @@ import {
   listReceivedGifts,
   listStoreItems,
   purchaseStoreItem,
+  publicStoreAsset,
   sendPaidGift
 } from './store.js';
 
 type PurchaseBody={ code?:string };
 type EquipBody={ code?:string };
-type GiftBody={ recipientUsername?:string; giftCode?:string };
+type GiftBody={ recipientUsername?:string; giftCode?:string; contextType?:'profile'|'room'|'room_message'|'private_message'; contextId?:string };
 type ItemQuery={ type?:string };
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -34,6 +36,17 @@ function idempotencyKey(request:FastifyRequest){
 
 export async function registerStoreRoutes(app:FastifyInstance,options:{basePath:string}){
   const prefix=`${options.basePath}/store`;
+
+  app.get<{Params:{code:string}}>(`${prefix}/assets/:code`,async(request,reply)=>{
+    const code=request.params.code.trim().toLowerCase();
+    if(!/^[a-z0-9][a-z0-9_-]{1,63}$/.test(code))return reply.code(404).send({error:'STORE_ASSET_NOT_FOUND'});
+    const asset=await publicStoreAsset(code);
+    if(!asset)return reply.code(404).send({error:'STORE_ASSET_NOT_FOUND'});
+    reply.header('Cache-Control','public, max-age=3600');
+    reply.header('X-Content-Type-Options','nosniff');
+    reply.type(asset.mime);
+    return reply.send(openStoredFile(asset.storageKey));
+  });
 
   app.get<{Querystring:ItemQuery}>(`${prefix}/items`,async(request,reply)=>{
     const user=await requireUser(request,reply);
@@ -119,13 +132,14 @@ export async function registerStoreRoutes(app:FastifyInstance,options:{basePath:
     if(!UUID_RE.test(key)) return reply.code(400).send({error:'INVALID_IDEMPOTENCY_KEY'});
     if(!recipientUsername||!giftCode) return reply.code(400).send({error:'INVALID_GIFT'});
     try{
-      const result=await sendPaidGift(user.id,recipientUsername,giftCode,key);
+      const result=await sendPaidGift(user.id,recipientUsername,giftCode,key,request.body.contextType,request.body.contextId);
       if(!result.replayed){
+        const paidReaction=result.item.type==='reaction';
         await createNotification({
           userId:result.recipient.id,
-          type:'gift_received',
-          title:'هدية جديدة',
-          body:`${user.display_name} بعثلك ${result.item.name}`,
+          type:paidReaction?'paid_reaction':'gift_received',
+          title:paidReaction?'تفاعل مدفوع جديد':'هدية جديدة',
+          body:paidReaction?`${user.display_name} تفاعل معاك بـ ${result.item.name}`:`${user.display_name} بعثلك ${result.item.name}`,
           data:{
             transactionId:result.transaction.id,
             itemId:result.item.id,

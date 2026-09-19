@@ -8,6 +8,7 @@ import { registerAuthDeviceRoutes } from './modules/auth/devices.js';
 import { registerAdminRoutes } from './modules/admin/routes.js';
 import { registerEconomyRoutes } from './modules/economy/routes.js';
 import { registerStoreRoutes } from './modules/economy/store-routes.js';
+import { registerAdminStoreRoutes } from './modules/economy/admin-store.js';
 import { registerHealthRoutes } from './modules/health/routes.js';
 import { registerMessageRoutes } from './modules/messages/routes.js';
 import { registerNearbyRoutes } from './modules/nearby/routes.js';
@@ -87,6 +88,10 @@ export async function buildApp() {
   });
 
   await registerStoreRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerAdminStoreRoutes(app, {
     basePath: apiBasePath
   });
 

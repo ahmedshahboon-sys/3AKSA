@@ -134,7 +134,23 @@ Pending:
 - Production/two-account behavior verification remains external.
 
 ### GROUP 5 — WALLET / STORE / GIFTS / VISUAL ITEMS
-Status: **NOT STARTED**
+Status: **IN PROGRESS**
+
+Changes:
+- Kept existing atomic/idempotent wallet, purchase and gift ledger; rose remains exactly 1.000 LYD with 0.500 LYD recipient and 0.500 LYD platform.
+- Added MFA-protected Store Admin API/UI for create/update/publish/hide/retire and audited actions.
+- Added validated Store asset upload: 1MB limit, signature sniffing, image/audio type separation, random internal storage keys and safe public asset serving.
+- Added migration `0021_public_cosmetics_view.sql` to project equipped frame/badge/entry-sound identifiers.
+- Frames and badges now propagate through profiles, friends, Nearby, private peers/messages and room messages and render on the shared Avatar.
+- Equipped room entry sounds are emitted on first presence join and obey mute/room-sound preferences plus cooldown.
+- Owned sticker-pack metadata is available as a text/sticker picker in Rooms and Private; no user image upload was added.
+- Gifts can be sent from Profile and Private; rose split is disclosed exactly in the UI.
+- Paid reaction Store items can be sent against Room/Private messages through the existing retry-safe gift ledger context.
+- Added `tests/group5-economy-store-visuals.test.mjs`.
+
+Pending:
+- Full typecheck/build/integration/CodeQL on Group 5 PR.
+- Production migration/asset storage/two-account economy behavior remains external.
 
 ### GROUP 6 — PWA / APK / PUSH / DISTRIBUTION
 Status: **NOT STARTED**

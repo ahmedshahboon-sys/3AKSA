@@ -27,6 +27,9 @@ type NearbyRow = {
   display_name: string;
   gender: 'boy' | 'girl';
   bio: string | null;
+  frame_code: string | null;
+  badge_code: string | null;
+  badge_name: string | null;
   distance_km: number;
 };
 
@@ -133,6 +136,7 @@ export async function registerNearbyRoutes(app: FastifyInstance, options: { base
     const result = await query<NearbyRow>(
       `WITH candidates AS (
          SELECT u.id, u.username, u.display_name, u.gender, u.bio,
+                cosmetics.frame_code,cosmetics.badge_code,cosmetics.badge_name,
                 6371.0 * 2.0 * asin(
                   sqrt(
                     LEAST(
@@ -145,6 +149,7 @@ export async function registerNearbyRoutes(app: FastifyInstance, options: { base
                 ) AS distance_km
          FROM users u
          JOIN user_locations l ON l.user_id = u.id
+         LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=u.id
          WHERE u.id <> $1
            AND u.status = 'active'
            AND u.nearby_enabled = true
@@ -156,7 +161,7 @@ export async function registerNearbyRoutes(app: FastifyInstance, options: { base
                 OR (b.blocker_id = u.id AND b.blocked_id = $1)
            )
        )
-       SELECT id, username, display_name, gender, bio, distance_km
+       SELECT id,username,display_name,gender,bio,frame_code,badge_code,badge_name,distance_km
        FROM candidates
        WHERE distance_km <= $5
        ORDER BY distance_km ASC, display_name ASC, username ASC
@@ -171,6 +176,7 @@ export async function registerNearbyRoutes(app: FastifyInstance, options: { base
         displayName: row.display_name,
         gender: row.gender,
         bio: row.bio,
+        cosmetics:{frameCode:row.frame_code,badgeCode:row.badge_code,badgeName:row.badge_name},
         ...approximateDistance(Number(row.distance_km))
       }))
     });

@@ -14,6 +14,9 @@ type SocialUserRow = {
   bio: string | null;
   nearby_enabled: boolean;
   mutual_suggestions_enabled: boolean;
+  frame_code?: string | null;
+  badge_code?: string | null;
+  badge_name?: string | null;
 };
 
 type FriendRequestRow = {
@@ -60,15 +63,17 @@ function publicProfileDto(user: SocialUserRow) {
     username: user.username,
     displayName: user.display_name,
     gender: user.gender,
-    bio: user.bio
+    bio: user.bio,
+    cosmetics:{frameCode:user.frame_code??null,badgeCode:user.badge_code??null,badgeName:user.badge_name??null}
   };
 }
 
 async function lookupActiveUser(username: string): Promise<SocialUserRow | null> {
   const result = await query<SocialUserRow>(
-    `SELECT id, username, display_name, gender, bio, nearby_enabled, mutual_suggestions_enabled
-     FROM users
-     WHERE username_normalized = $1 AND status = 'active'
+    `SELECT u.id,u.username,u.display_name,u.gender,u.bio,u.nearby_enabled,u.mutual_suggestions_enabled,
+            c.frame_code,c.badge_code,c.badge_name
+     FROM users u LEFT JOIN user_public_cosmetics c ON c.user_id=u.id
+     WHERE u.username_normalized = $1 AND u.status = 'active'
      LIMIT 1`,
     [normalizeUsername(username)]
   );
@@ -130,8 +135,10 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
     if (!auth) return;
 
     const result = await query<SocialUserRow & { phone_e164: string }>(
-      `SELECT id, username, display_name, phone_e164, gender, bio, nearby_enabled, mutual_suggestions_enabled
-       FROM users WHERE id = $1 LIMIT 1`,
+      `SELECT u.id,u.username,u.display_name,u.phone_e164,u.gender,u.bio,u.nearby_enabled,u.mutual_suggestions_enabled,
+              c.frame_code,c.badge_code,c.badge_name
+       FROM users u LEFT JOIN user_public_cosmetics c ON c.user_id=u.id
+       WHERE u.id = $1 LIMIT 1`,
       [auth.id]
     );
     const user = result.rows[0]!;

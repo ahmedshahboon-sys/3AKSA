@@ -51,7 +51,7 @@ export function LiveHomeScreen(){
       <div className="friends-row" aria-label="الأصدقاء">
         {data?.friends.slice(0,8).map((friend)=>(
           <Link className="friend-mini link-reset" to={'/profiles/'+encodeURIComponent(friend.username)} key={friend.id}>
-            <Avatar name={friend.displayName} gender={genderToUi(friend.gender)} />
+            <Avatar name={friend.displayName} gender={genderToUi(friend.gender)} cosmetics={friend.cosmetics}/>
             <span>{friend.displayName}</span>
           </Link>
         ))}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { ChatMessage, Room, TvChannel } from '@3aksa/api-client';
+import type { ChatMessage, Room, StoreItem, TvChannel } from '@3aksa/api-client';
 import { api, realtime } from '../runtime';
 import { useSession } from '../session';
 import { readableError, useApiResource } from '../useApiResource';
@@ -17,6 +17,28 @@ type RoomTvState={
   canManage?:boolean;
   selectedChannel?:TvChannel|null;
 };
+
+function roomStickerTexts(items:Array<StoreItem & {acquiredAt:string}>){
+  return items.filter(item=>item.type==='sticker_pack').flatMap(item=>{
+    const stickers=Array.isArray(item.metadata?.stickers)?item.metadata!.stickers:[];
+    return stickers.filter((value):value is string=>typeof value==='string'&&value.length>0&&value.length<=64);
+  }).slice(0,32);
+}
+
+const entrySoundCooldown=new Map<string,number>();
+
+async function playEntrySound(code:string,userId:string){
+  const now=Date.now();
+  if(now-(entrySoundCooldown.get(userId)??0)<8_000)return;
+  entrySoundCooldown.set(userId,now);
+  try{
+    const prefs=(await api.notificationPreferences()).preferences;
+    if(prefs.sounds.muteAll||!prefs.sounds.rooms)return;
+    const audio=new Audio(api.storeAssetUrl(code));
+    audio.volume=.7;
+    await audio.play();
+  }catch{/* entry sounds are optional and must never break room presence */}
+}
 
 function upsertMessage(list:ChatMessage[],message:ChatMessage){
   const index=list.findIndex((item)=>item.id===message.id);
@@ -127,11 +149,16 @@ export function LiveRoomChatScreen(){
   const resource=useApiResource(async()=>{
     const roomResponse=await api.room(roomId);
     await api.joinCheck(roomId);
-    const [messageResponse,tvResponse]=await Promise.all([api.roomMessages(roomId,{limit:100}),api.roomTv(roomId)]);
+    const [messageResponse,tvResponse,inventory,reactions]=await Promise.all([
+      api.roomMessages(roomId,{limit:100}),api.roomTv(roomId),api.inventory(),api.storeItems('reaction')
+    ]);
     let channels:TvChannel[]=[];
     const tvState=tvResponse.tv as RoomTvState;
     if(tvState.canManage){channels=(await api.tvChannels({sort:'manual',limit:500})).channels;}
-    return {room:roomResponse.room,messages:messageResponse.messages,tv:tvState,channels};
+    return {
+      room:roomResponse.room,messages:messageResponse.messages,tv:tvState,channels,
+      stickers:roomStickerTexts(inventory.items),reactions:reactions.items
+    };
   },[roomId]);
 
   useEffect(()=>{
@@ -151,6 +178,11 @@ export function LiveRoomChatScreen(){
     });
     const offDelete=realtime.on('room:message-deleted',(payload)=>{if(payload.roomId===roomId)setMessages((current)=>current.filter((item)=>item.id!==payload.messageId));});
     const offPresence=realtime.on('room:presence',(payload)=>{if(payload.roomId===roomId)setOnlineCount(payload.onlineCount);});
+    const offMemberJoined=realtime.on('room:member-joined',(payload)=>{
+      if(payload.roomId!==roomId)return;
+      const joined=payload.user as {id?:string;entrySoundCode?:string|null};
+      if(joined.entrySoundCode&&joined.id)void playEntrySound(joined.entrySoundCode,joined.id);
+    });
     const offReaction=realtime.on('room:reaction',(payload)=>{
       if(payload.roomId!==roomId)return;
       setMessages((current)=>current.map((item)=>item.id===payload.messageId?{...item,reactions:{like:{count:payload.count,reacted:item.reactions?.like.reacted??false}}}:item));
@@ -165,7 +197,7 @@ export function LiveRoomChatScreen(){
     void realtime.joinRoom(roomId).then((ack)=>{if(!ack.ok&&active)setActionError(readableError(new Error(String(ack.error??'REALTIME_ERROR'))));});
     return()=>{
       active=false;
-      offMessage();offDelete();offPresence();offReaction();offTv();
+      offMessage();offDelete();offPresence();offMemberJoined();offReaction();offTv();
       void realtime.leaveRoom(roomId);
     };
   },[roomId,resource.data]);
@@ -196,6 +228,14 @@ export function LiveRoomChatScreen(){
     const ack=await realtime.setRoomLike(roomId,message.id,!current) as {ok?:boolean;error?:string;like?:{count:number}};
     if(!ack.ok){setActionError(ack.error??'REACTION_UPDATE_FAILED');return;}
     setMessages((items)=>items.map((item)=>item.id===message.id?{...item,reactions:{like:{count:ack.like?.count??item.reactions?.like.count??0,reacted:!current}}}:item));
+  }
+  async function paidReaction(message:ChatMessage,item:StoreItem){
+    const recipient=message.sender?.username;
+    if(!recipient||message.sender?.id===user?.id)return;
+    setActionError('');
+    try{
+      await api.sendGift(recipient,item.code,crypto.randomUUID(),{type:'room_message',id:message.id});
+    }catch(error){setActionError(readableError(error));}
   }
 
   async function removeMessage(messageId:string){
@@ -230,7 +270,7 @@ export function LiveRoomChatScreen(){
 
   if(resource.loading)return <main className="page-shell"><div className="live-loading">جاري دخول الغرفة...</div></main>;
   if(resource.error||!resource.data)return <main className="page-shell"><ScreenHeader title="الغرفة" backTo="/rooms"/><div className="live-error">{resource.error||'تعذر فتح الغرفة'}</div></main>;
-  const {room,channels}=resource.data;
+  const {room,channels,stickers,reactions:paidReactions}=resource.data;
   const canManageTv=Boolean(tv?.canManage||room.viewerRole==='owner'||room.viewerRole==='moderator');
 
   return (
@@ -261,7 +301,7 @@ export function LiveRoomChatScreen(){
           const mine=message.sender?.id===user?.id;
           return (
             <article className={mine?'message-row mine':'message-row'} key={message.id}>
-              {!mine?<Avatar name={message.sender?.displayName||'مستخدم'} gender={genderToUi(message.sender?.gender)}/>:null}
+              {!mine?<Avatar name={message.sender?.displayName||'مستخدم'} gender={genderToUi(message.sender?.gender)} cosmetics={message.sender?.cosmetics}/>:null}
               <div>
                 <div className="message-author"><b>{mine?'أنت':message.sender?.displayName||'مستخدم'}</b><time>{localTime(message.createdAt)}</time></div>
                 {message.type==='voice'?(
@@ -269,6 +309,7 @@ export function LiveRoomChatScreen(){
                 ):<div className="message-bubble">{message.text||''}</div>}
                 <div className="message-actions">
                   <button type="button" className={message.reactions?.like.reacted?'active':''} onClick={()=>void toggleLike(message)}>❤️ {message.reactions?.like.count??0}</button>
+                  {!mine?paidReactions.slice(0,3).map(item=><button type="button" key={item.id} onClick={()=>void paidReaction(message,item)}>{item.name} · {(item.priceMilli/1000).toFixed(3)}</button>):null}
                   {(mine||room.viewerRole!=='viewer')?<button type="button" onClick={()=>void removeMessage(message.id)}>حذف</button>:null}
                   {!mine&&message.sender?.username?<><Link className="link-reset" to={'/profiles/'+encodeURIComponent(message.sender.username)}>الملف</Link><Link className="link-reset" to={'/profiles/'+encodeURIComponent(message.sender.username)+'?report=1'}>بلاغ</Link><button type="button" onClick={()=>void blockRoomMember(message.sender!.username)}>حظر</button></>:null}
                 </div>
@@ -278,6 +319,7 @@ export function LiveRoomChatScreen(){
         }):<div className="empty-state-inline">ابدأ أول رسالة في الغرفة 👋</div>}
       </section>
 
+      {stickers.length?<div className="sticker-picker" aria-label="الملصقات">{stickers.map((sticker,index)=><button type="button" key={sticker+index} onClick={()=>setComposer(current=>(current?current+' ':'')+sticker)}>{sticker}</button>)}</div>:null}
       <form className="chat-composer live-composer" onSubmit={sendText}>
         <input value={composer} onChange={(e)=>setComposer(e.target.value)} maxLength={2000} aria-label="نص الرسالة" placeholder="اكتب حاجة..." />
         <VoiceRecorderButton disabled={sending} onReady={sendVoice}/>

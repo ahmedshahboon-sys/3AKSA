@@ -10,6 +10,9 @@ type SuggestionRow = {
   display_name: string;
   gender: 'boy' | 'girl';
   bio: string | null;
+  frame_code: string | null;
+  badge_code: string | null;
+  badge_name: string | null;
   mutual_count: number;
 };
 
@@ -46,11 +49,13 @@ export async function registerSuggestionRoutes(app: FastifyInstance, options: { 
          UNION ALL
          SELECT f.user_high_id AS candidate_id, f.user_low_id AS friend_id FROM friendships f
        )
-       SELECT u.id, u.username, u.display_name, u.gender, u.bio,
+       SELECT u.id,u.username,u.display_name,u.gender,u.bio,
+              cosmetics.frame_code,cosmetics.badge_code,cosmetics.badge_name,
               count(DISTINCT vf.friend_id)::int AS mutual_count
        FROM viewer_friends vf
        JOIN friendship_edges edge ON edge.friend_id = vf.friend_id
        JOIN users u ON u.id = edge.candidate_id
+       LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=u.id
        WHERE u.id <> $1
          AND u.status = 'active'
          AND u.mutual_suggestions_enabled = true
@@ -68,7 +73,7 @@ export async function registerSuggestionRoutes(app: FastifyInstance, options: { 
            WHERE (b.blocker_id = $1 AND b.blocked_id = u.id)
               OR (b.blocker_id = u.id AND b.blocked_id = $1)
          )
-       GROUP BY u.id, u.username, u.display_name, u.gender, u.bio
+       GROUP BY u.id,u.username,u.display_name,u.gender,u.bio,cosmetics.frame_code,cosmetics.badge_code,cosmetics.badge_name
        HAVING count(DISTINCT vf.friend_id) > 0
        ORDER BY mutual_count DESC, u.display_name ASC, u.username ASC
        LIMIT $2`,
@@ -82,6 +87,7 @@ export async function registerSuggestionRoutes(app: FastifyInstance, options: { 
         displayName: row.display_name,
         gender: row.gender,
         bio: row.bio,
+        cosmetics:{frameCode:row.frame_code,badgeCode:row.badge_code,badgeName:row.badge_name},
         mutualCount: row.mutual_count
       }))
     });
