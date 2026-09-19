@@ -341,6 +341,64 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
     return reply.send({ room: roomDto(room!, auth) });
   });
 
+  app.get<{ Params: { roomId: string } }>(`${prefix}/:roomId/management`, async (request, reply) => {
+    const auth = await requireUser(request, reply);
+    if (!auth) return;
+    const permission = await canManageRoom(request.params.roomId, auth.id);
+    if (!permission.exists) return reply.code(404).send({ error: 'ROOM_NOT_FOUND' });
+    if (!permission.allowed) return reply.code(403).send({ error: 'ROOM_MANAGER_REQUIRED' });
+
+    const room = await lookupRoom(request.params.roomId, auth.id);
+    if (!room) return reply.code(404).send({ error: 'ROOM_NOT_FOUND' });
+
+    const [moderators, bans, invites] = await Promise.all([
+      query<{ username: string; display_name: string; created_at: Date }>(
+        `SELECT u.username,u.display_name,rm.created_at
+         FROM room_moderators rm
+         JOIN users u ON u.id=rm.user_id
+         WHERE rm.room_id=$1 AND u.status='active'
+         ORDER BY rm.created_at,u.username`,
+        [room.id]
+      ),
+      query<{ username: string; display_name: string; reason: string | null; expires_at: Date | null; created_at: Date }>(
+        `SELECT u.username,u.display_name,rb.reason,rb.expires_at,rb.created_at
+         FROM room_bans rb
+         JOIN users u ON u.id=rb.user_id
+         WHERE rb.room_id=$1 AND (rb.expires_at IS NULL OR rb.expires_at>now())
+         ORDER BY rb.created_at DESC`,
+        [room.id]
+      ),
+      query<{ username: string; display_name: string; expires_at: Date | null; created_at: Date }>(
+        `SELECT u.username,u.display_name,ri.expires_at,ri.created_at
+         FROM room_invites ri
+         JOIN users u ON u.id=ri.user_id
+         WHERE ri.room_id=$1 AND (ri.expires_at IS NULL OR ri.expires_at>now())
+         ORDER BY ri.created_at DESC`,
+        [room.id]
+      )
+    ]);
+
+    return reply.send({
+      management:{
+        room:roomDto(room,auth,(await roomPresenceSnapshot(room.id)).onlineCount),
+        permissions:{
+          owner:permission.owner,
+          canEditRoom:permission.owner,
+          canManageModerators:permission.owner,
+          canModerate:permission.allowed
+        },
+        moderators:moderators.rows.map((row)=>({
+          username:row.username,displayName:row.display_name,createdAt:row.created_at
+        })),
+        bans:bans.rows.map((row)=>({
+          username:row.username,displayName:row.display_name,reason:row.reason,expiresAt:row.expires_at,createdAt:row.created_at
+        })),
+        invites:invites.rows.map((row)=>({
+          username:row.username,displayName:row.display_name,expiresAt:row.expires_at,createdAt:row.created_at
+        }))
+      }
+    });
+  });
   app.post<{ Params: { roomId: string } }>(`${prefix}/:roomId/favorite`, async (request, reply) => {
     const auth = await requireUser(request, reply);
     if (!auth) return;
