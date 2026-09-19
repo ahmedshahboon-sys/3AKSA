@@ -23,7 +23,7 @@ test('Group 11 QA covers required real-device and two-account release gates',()=
   const qa=read('docs/qa/GROUP11_FINAL_PHYSICAL_QA.md');
   for(const phrase of [
     'Post-login stability',
-    'Same account',
+    'Shared account',
     'Room voice',
     'Private chat',
     'Gender policy',
