@@ -83,7 +83,7 @@ Changes:
 Physical-device crash closure remains `BLOCKED_EXTERNAL` until a real Android device/logcat run is supplied.
 
 ### GROUP 2 — AUTH / RECOVERY / DEVICES / SESSIONS
-Status: **IN PROGRESS**
+Status: **BLOCKED_EXTERNAL** (code/CI complete; production migration verification remains external)
 
 Changes:
 - Unified password policy across registration/admin/recovery: 8–128 chars with at least one Unicode letter and one number.
@@ -94,12 +94,25 @@ Changes:
 - Added migration `0020_auth_recovery.sql`.
 - Added Phase 2 integration coverage for recovery and device/session revocation.
 
-Pending:
-- CI/CodeQL on Group 2 PR.
+Closure:
+- PR #22 merged to develop at `14fd18cf8985c8a99dcb86da29c2fa7e189dd747`.
+- Phase 1–11 applicable CI, CodeQL and Android Release Candidate: PASS.
 - Production migration state remains external.
 
 ### GROUP 3 — SOCIAL / FRIENDS / BLOCK / REPORT
-Status: **NOT STARTED**
+Status: **IN PROGRESS**
+
+Changes:
+- Typed incoming/outgoing friend request lifecycle, accept/reject/cancel/remove-friend APIs.
+- Friends management UI and blocked-users management.
+- User profile actions for friend request, private message, block and report.
+- Block/report entry points from Nearby, Private, and room-member messages.
+- Authenticated rate-limit identity uses the session rather than shared NAT IP, with a separate IP flood ceiling.
+- Existing backend block behavior cancels friendship/pending requests and hides profiles in both directions.
+
+Pending:
+- Regression contract + CI/CodeQL.
+- Production/two-account behavior verification remains external.
 
 ### GROUP 4 — ROOMS + ROOM ADMIN + TV
 Status: **NOT STARTED**
