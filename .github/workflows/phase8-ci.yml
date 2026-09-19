@@ -71,4 +71,4 @@ jobs:
       - name: Apply PostgreSQL migrations
         run: pnpm --filter @3aksa/api db:migrate
       - name: Run Phase 8 admin/security integration tests
-        run: pnpm --filter @3aksa/api exec tsx --test tests/admin-security.integration.test.ts
+        run: pnpm --filter @3aksa/api exec tsx --test tests/admin-security.integration.test.ts tests/admin-moderation.integration.test.ts
