@@ -381,3 +381,29 @@ h3 { margin: 0; font-size: .96rem; }
 .inline-store-icon { width:22px; height:22px; object-fit:contain; vertical-align:middle; }
 .sticker-picker { display:flex; gap:6px; overflow-x:auto; padding:6px 2px 8px; scrollbar-width:thin; }
 .sticker-picker button { min-width:40px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:11px; background:var(--card); color:var(--text); font-size:1rem; }
+
+/* Group 6 — distribution and public install */
+.auth-download-link { display:flex; justify-content:center; margin-top:10px; }
+.install-page { width:min(100% - 24px,980px); margin:0 auto; padding:calc(18px + env(safe-area-inset-top)) 0 calc(28px + env(safe-area-inset-bottom)); }
+.install-hero { display:flex; align-items:center; gap:14px; padding:18px; border:1px solid var(--border); border-radius:22px; background:var(--card); box-shadow:var(--shadow); }
+.install-hero > img { width:68px; height:68px; border-radius:18px; }
+.install-hero > div { min-width:0; flex:1; }
+.install-hero h1 { margin:2px 0 4px; }
+.install-hero p { margin:0; color:var(--muted); line-height:1.55; }
+.install-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:12px; }
+.install-card { display:grid; align-content:start; gap:10px; padding:16px; border:1px solid var(--border); border-radius:20px; background:var(--card); }
+.install-card h2 { margin:0; font-size:1rem; }
+.install-card > p,.install-card > .muted { margin:0; color:var(--muted); font-size:.72rem; line-height:1.65; }
+.release-download-card { display:grid; gap:8px; padding:12px; border:1px solid var(--border); border-radius:15px; background:var(--elevated); }
+.release-download-card > div { display:grid; gap:3px; }
+.release-download-card small { color:var(--muted); font-size:.64rem; }
+.release-download-card p { margin:0; color:var(--muted); font-size:.68rem; line-height:1.55; }
+.ios-install-steps { display:grid; gap:8px; margin:0; padding-inline-start:22px; color:var(--muted); font-size:.72rem; line-height:1.55; }
+.release-row { align-items:flex-start; padding-block:12px; }
+.release-row > span { display:grid; gap:5px; }
+.release-row .wrap-code { max-width:min(520px,72vw); }
+@media (max-width:680px) {
+  .install-grid { grid-template-columns:1fr; }
+  .install-hero { align-items:flex-start; flex-wrap:wrap; }
+  .install-hero > .secondary-button { width:100%; text-align:center; }
+}
