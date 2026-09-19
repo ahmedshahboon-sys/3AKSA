@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ApiError, type Gender } from '@3aksa/api-client';
 import { useSession } from './session';
 import { api } from './runtime';
+import { getLanguage,setLanguage,type AppLanguage } from './i18n';
 
 const errorText:Record<string,string>={
   INVALID_CREDENTIALS:'اسم المستخدم/الرقم أو كلمة المرور مش صحيحة.',
@@ -31,6 +32,8 @@ function message(error:unknown){
 export function AuthScreen(){
   const {login,register,recover}=useSession();
   const [mode,setMode]=useState<'login'|'register'|'recover'>('login');
+  const [language,setUiLanguage]=useState<AppLanguage>(()=>getLanguage());
+  const L=(ar:string,en:string)=>language==='ar'?ar:en;
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
@@ -103,81 +106,87 @@ export function AuthScreen(){
         <img className="auth-logo" src={`${import.meta.env.BASE_URL}icons/logo-main-192.png`} alt="عكسة" />
         <div className="auth-heading">
           <span>3AKSA</span>
-          <h1>عكسة</h1>
-          <p>دردشة خفيفة، غرف، خاص وأكثر.</p>
+          <h1>{language==='ar'?'عكسة':'3AKSA'}</h1>
+          <p>{L('دردشة خفيفة، غرف، خاص وأكثر.','Lightweight chat, rooms, private messages and more.')}</p>
+        </div>
+        <div className="language-switch" aria-label="Language">
+          <button type="button" className={language==='ar'?'active':''} onClick={()=>{setLanguage('ar');setUiLanguage('ar');}}>العربية</button>
+          <button type="button" className={language==='en'?'active':''} onClick={()=>{setLanguage('en');setUiLanguage('en');}}>English</button>
         </div>
 
         <div className="segmented auth-tabs" aria-label="الحساب">
-          <button type="button" className={mode==='login'?'active':''} onClick={()=>switchMode('login')}>دخول</button>
-          <button type="button" className={mode==='register'?'active':''} onClick={()=>switchMode('register')}>حساب جديد</button>
-          <button type="button" className={mode==='recover'?'active':''} onClick={()=>switchMode('recover')}>استرجاع</button>
+          <button type="button" className={mode==='login'?'active':''} onClick={()=>switchMode('login')}>{L('دخول','Login')}</button>
+          <button type="button" className={mode==='register'?'active':''} onClick={()=>switchMode('register')}>{L('حساب جديد','Register')}</button>
+          <button type="button" className={mode==='recover'?'active':''} onClick={()=>switchMode('recover')}>{L('استرجاع','Recovery')}</button>
         </div>
 
         {mode!=='recover'?(
           <form className="auth-form" onSubmit={submitAuth}>
             {mode==='login'?(
-              <label><span>اسم المستخدم أو رقم الهاتف</span><input name="login" autoComplete="username" required /></label>
+              <label><span>{L('اسم المستخدم أو رقم الهاتف','Username or phone')}</span><input name="login" autoComplete="username" required /></label>
             ):(
               <>
-                <label><span>اسم المستخدم</span><input name="username" autoComplete="username" minLength={3} maxLength={24} required dir="ltr" value={registrationUsername} onChange={(event)=>setRegistrationUsername(event.target.value)} /></label>
+                <label><span>{L('اسم المستخدم','Username')}</span><input name="username" autoComplete="username" minLength={3} maxLength={24} required dir="ltr" value={registrationUsername} onChange={(event)=>setRegistrationUsername(event.target.value)} /></label>
                 {registrationUsername.trim().toLowerCase()==='ahmed'?(
-                  <label><span>رمز تفعيل المالك</span><input name="ownerClaimCode" type="password" autoComplete="off" minLength={20} required dir="ltr" /></label>
+                  <label><span>{L('رمز تفعيل المالك','Owner activation code')}</span><input name="ownerClaimCode" type="password" autoComplete="off" minLength={20} required dir="ltr" /></label>
                 ):null}
-                <label><span>الاسم الظاهر</span><input name="displayName" autoComplete="name" minLength={2} maxLength={80} required /></label>
-                <label><span>رقم الهاتف</span><input name="phone" autoComplete="tel" inputMode="tel" required dir="ltr" placeholder="+218..." /></label>
+                <label><span>{L('الاسم الظاهر','Display name')}</span><input name="displayName" autoComplete="name" minLength={2} maxLength={80} required /></label>
+                <label><span>{L('رقم الهاتف','Phone number')}</span><input name="phone" autoComplete="tel" inputMode="tel" required dir="ltr" placeholder="+218..." /></label>
                 <fieldset className="gender-picker">
-                  <legend>الجنس</legend>
-                  <label><input type="radio" name="gender" value="boy" defaultChecked /> ولد ♂</label>
-                  <label><input type="radio" name="gender" value="girl" /> بنت ♀</label>
+                  <legend>{L('الجنس','Gender')}</legend>
+                  <label><input type="radio" name="gender" value="boy" defaultChecked /> {L('ولد','Boy')} ♂</label>
+                  <label><input type="radio" name="gender" value="girl" /> {L('بنت','Girl')} ♀</label>
                 </fieldset>
               </>
             )}
 
             <label>
-              <span>كلمة المرور</span>
+              <span>{L('كلمة المرور','Password')}</span>
               <div className="password-field">
                 <input name="password" type={showPassword?'text':'password'} autoComplete={mode==='login'?'current-password':'new-password'} minLength={8} maxLength={128} required />
-                <button type="button" onClick={()=>setShowPassword((value)=>!value)}>{showPassword?'إخفاء':'إظهار'}</button>
+                <button type="button" onClick={()=>setShowPassword((value)=>!value)}>{showPassword?L('إخفاء','Hide'):L('إظهار','Show')}</button>
               </div>
             </label>
 
             {mode==='register'?(
-              <label><span>تأكيد كلمة المرور</span><input name="confirmPassword" type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={128} required /></label>
+              <label><span>{L('تأكيد كلمة المرور','Confirm password')}</span><input name="confirmPassword" type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={128} required /></label>
             ):null}
 
-            {mode==='login'?<button className="link-button" type="button" onClick={()=>switchMode('recover')}>نسيت كلمة المرور؟</button>:null}
+            {mode==='login'?<button className="link-button" type="button" onClick={()=>switchMode('recover')}>{L('نسيت كلمة المرور؟','Forgot password?')}</button>:null}
             {error?<div className="auth-error" role="alert">{error}</div>:null}
             <button className="primary-button auth-submit" disabled={busy} type="submit">
-              {busy?'جاري...':mode==='login'?'خش لعكسة':'إنشاء الحساب'}
+              {busy?L('جاري...','Working...'):mode==='login'?L('خش لعكسة','Open 3AKSA'):L('إنشاء الحساب','Create account')}
             </button>
           </form>
         ):(
           <>
             {!recoveryReady?(
               <form className="auth-form" onSubmit={requestRecovery}>
-                <p className="muted">اكتب اسم المستخدم أو رقم الهاتف. الرد ما يكشفش إذا الحساب موجود أو لا.</p>
+                <p className="muted">{L('اكتب اسم المستخدم أو رقم الهاتف. الرد ما يكشفش إذا الحساب موجود أو لا.','Enter your username or phone. The response does not reveal whether an account exists.')}</p>
                 <label><span>اسم المستخدم أو رقم الهاتف</span><input name="login" autoComplete="username" required /></label>
                 {error?<div className="auth-error" role="alert">{error}</div>:null}
-                <button className="primary-button auth-submit" disabled={busy}>إرسال طلب الاسترجاع</button>
-                <button className="secondary-button" type="button" onClick={()=>{setRecoveryReady(true);setError('');}}>عندي رمز استرجاع</button>
+                <button className="primary-button auth-submit" disabled={busy}>{L('إرسال طلب الاسترجاع','Send recovery request')}</button>
+                <button className="secondary-button" type="button" onClick={()=>{setRecoveryReady(true);setError('');}}>{L('عندي رمز استرجاع','I have a recovery code')}</button>
               </form>
             ):(
               <form className="auth-form" onSubmit={confirmRecovery}>
                 {notice?<div className="success-note" role="status">{notice}</div>:null}
-                <label><span>رقم طلب الاسترجاع</span><input name="requestId" defaultValue={recoveryRequestId} required dir="ltr" /></label>
-                <label><span>رمز الاسترجاع المؤقت</span><input name="recoveryCode" autoComplete="one-time-code" required dir="ltr" /></label>
-                <label><span>كلمة المرور الجديدة</span><input name="newPassword" type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={128} required /></label>
+                <label><span>{L('رقم طلب الاسترجاع','Recovery request ID')}</span><input name="requestId" defaultValue={recoveryRequestId} required dir="ltr" /></label>
+                <label><span>{L('رمز الاسترجاع المؤقت','Temporary recovery code')}</span><input name="recoveryCode" autoComplete="one-time-code" required dir="ltr" /></label>
+                <label><span>{L('كلمة المرور الجديدة','New password')}</span><input name="newPassword" type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={128} required /></label>
                 <label><span>تأكيد كلمة المرور</span><input name="confirmPassword" type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={128} required /></label>
-                <button className="link-button" type="button" onClick={()=>setShowPassword((value)=>!value)}>{showPassword?'إخفاء كلمة المرور':'إظهار كلمة المرور'}</button>
+                <button className="link-button" type="button" onClick={()=>setShowPassword((value)=>!value)}>{showPassword?L('إخفاء كلمة المرور','Hide password'):L('إظهار كلمة المرور','Show password')}</button>
                 {error?<div className="auth-error" role="alert">{error}</div>:null}
-                <button className="primary-button auth-submit" disabled={busy}>تغيير كلمة المرور والدخول</button>
-                <button className="secondary-button" type="button" onClick={()=>{setRecoveryReady(false);setNotice('');setRecoveryRequestId('');}}>طلب جديد</button>
+                <button className="primary-button auth-submit" disabled={busy}>{L('تغيير كلمة المرور والدخول','Change password and sign in')}</button>
+                <button className="secondary-button" type="button" onClick={()=>{setRecoveryReady(false);setNotice('');setRecoveryRequestId('');}}>{L('طلب جديد','New request')}</button>
               </form>
             )}
           </>
         )}
 
-        <Link className="secondary-button link-reset auth-download-link" to="/download">تنزيل عكسة / تثبيت PWA</Link>\n        <p className="auth-footnote">الرسائل النصية والصوتية تنحذف تلقائيًا بعد 24 ساعة من إنشائها.</p>
+        <Link className="secondary-button link-reset auth-download-link" to="/download">{L('تنزيل عكسة / تثبيت PWA','Download 3AKSA / Install PWA')}</Link>
+        <nav className="auth-legal-links"><Link to="/privacy">{L('الخصوصية','Privacy')}</Link><Link to="/terms">{L('الشروط','Terms')}</Link><Link to="/support">{L('الدعم','Support')}</Link></nav>
+        <p className="auth-footnote">{L('الرسائل النصية والصوتية تنحذف تلقائيًا بعد 24 ساعة من إنشائها.','Text and voice messages expire 24 hours after they are created.')}</p>
       </section>
     </main>
   );
