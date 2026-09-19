@@ -32,6 +32,17 @@ if(!activity.includes('registerPlugin(SecureStorePlugin.class)')){
 }
 
 let xml=await fs.readFile(manifest,'utf8');
+const requiredPermissions=[
+  'android.permission.RECORD_AUDIO',
+  'android.permission.ACCESS_COARSE_LOCATION',
+  'android.permission.ACCESS_FINE_LOCATION',
+  'android.permission.POST_NOTIFICATIONS'
+];
+for(const permission of requiredPermissions){
+  if(!xml.includes(`android:name="${permission}"`)){
+    xml=xml.replace('<application',`<uses-permission android:name="${permission}" />\n<application`);
+  }
+}
 if(/android:allowBackup="[^"]*"/.test(xml)){
   xml=xml.replace(/android:allowBackup="[^"]*"/,'android:allowBackup="false"');
 }else{

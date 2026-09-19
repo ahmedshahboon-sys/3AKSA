@@ -42,7 +42,7 @@ Status legend: `NOT STARTED` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DEFERRE
 ## Groups
 
 ### GROUP 0 — BASELINE & REAL STATE AUDIT
-Status: **IN PROGRESS**
+Status: **BLOCKED_EXTERNAL** (source/CI baseline complete; production runtime checks unavailable from this execution network)
 
 - [x] Verify develop SHA.
 - [x] Verify main SHA.
@@ -50,9 +50,9 @@ Status: **IN PROGRESS**
 - [x] Inspect open PRs.
 - [x] Confirm package manager and principal app packages.
 - [x] Confirm PWA manifest exists.
-- [ ] Confirm current CI/CodeQL run results for tested release commit.
-- [ ] Confirm migrations list and DB schema state.
-- [ ] Confirm Android versionName/versionCode.
+- [x] Confirm CI/CodeQL gates on PR #20: Phase 1–11 applicable workflows, CodeQL and Android Release Candidate all passed.
+- [x] Confirm migration inventory through `0019_owner_bootstrap.sql` (19 migrations in Git; production-applied state remains external).
+- [x] Confirm Android release-candidate versionName `1.0.1`, versionCode `2`.
 - [ ] Confirm Production APP_VERSION, /health, /ready, API, Socket.IO, service worker and Nginx subpath.
 - [ ] Classify all launch-critical areas as Implemented / Partial / Missing / Broken.
 
@@ -67,7 +67,16 @@ Current blockers:
 - Production/server network and physical-device checks are external to this connector session.
 
 ### GROUP 1 — ANDROID P0 STABILITY
-Status: **NOT STARTED**
+Status: **IN PROGRESS**
+
+Changes in progress:
+- Top-level React Error Boundary.
+- Native push fail-safe; no permission prompt during core startup.
+- Native app-link/app-info fail-safe.
+- Generated Android manifest permission contract for microphone, location and notifications.
+- CI regression gate for startup safety.
+
+Physical-device crash closure remains `BLOCKED_EXTERNAL` until a real Android device/logcat run is supplied.
 
 ### GROUP 2 — AUTH / RECOVERY / DEVICES / SESSIONS
 Status: **NOT STARTED**
