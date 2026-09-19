@@ -225,11 +225,24 @@ Changes:
 - Documented that application rate limits are not volumetric DDoS protection; edge/reverse-proxy/provider controls remain required.
 - Added `tests/group9-security-operations.test.mjs`.
 
-Closure gate:
-- Merge only after all applicable CI, Phase 9 QA, CodeQL Security and Android Release Candidate pass.
+Closure:
+- PR #29 merged to develop at `15aefbc8c99ddb6ffa884df01c8e58a9a6ef2972`.
+- All applicable Phase CI, Phase 9 QA, CodeQL Security and Android Release Candidate: PASS.
 
 ### GROUP 10 — PRODUCTION DEPLOYMENT & OWNER BOOTSTRAP
-Status: **BLOCKED_EXTERNAL**
+Status: **BLOCKED_EXTERNAL** (source implementation complete; real Production execution requires server access)
+
+Source-side changes:
+- Production env generation provisions `OWNER_USERNAME=ahmed` and a one-time owner activation secret outside Git.
+- Added verified owner-bootstrap shutdown that refuses to disable activation until active `ahmed` has all five staff roles.
+- Deployment runs Production security preflight before migrations and shared public smoke verification after Nginx integration.
+- Public verification covers health, readiness, Web/PWA shell, download route, Socket.IO handshake and security headers.
+- Added production/owner bootstrap runbook and Group 10 regression tests.
+
+External closure required:
+- Execute deployment on the real Ubuntu host.
+- Create `ahmed`, configure Admin MFA, then disable owner bootstrap.
+- Record non-secret health/readiness/container/retention evidence.
 
 ### GROUP 11 — FINAL TWO-ACCOUNT + PHYSICAL DEVICE QA
 Status: **BLOCKED_EXTERNAL**
