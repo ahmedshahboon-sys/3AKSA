@@ -25,12 +25,12 @@ export function relativeTime(value:string|undefined|null){
   return `${Math.floor(seconds/86400)} ي`;
 }
 
-export function LiveState({loading,error,empty,children}:{
-  loading:boolean;error:string;empty?:boolean;children:ReactNode;
+export function LiveState({loading,error,empty,onRetry,children}:{
+  loading:boolean;error:string;empty?:boolean;onRetry?:()=>void;children:ReactNode;
 }){
-  if(loading)return <div className="live-loading">جاري التحميل...</div>;
-  if(error)return <div className="live-error">{error}</div>;
-  if(empty)return <div className="empty-state-inline">ما فيش بيانات توا.</div>;
+  if(loading)return <div className="live-loading" role="status" aria-live="polite">جاري التحميل...</div>;
+  if(error)return <div className="live-error" role="alert"><span>{error}</span>{onRetry?<button type="button" className="secondary-button" onClick={onRetry}>إعادة المحاولة</button>:null}</div>;
+  if(empty)return <div className="empty-state-inline" role="status">ما فيش بيانات توا.</div>;
   return <>{children}</>;
 }
 
