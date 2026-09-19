@@ -30,6 +30,14 @@ install -d -m 755 /var/www/3aksa/3aksa
 "${ROOT}/infra/server/bootstrap-database.sh"
 "${ROOT}/infra/server/create-production-env.sh"
 
+CURRENT_VERSION="$(git rev-parse --short=12 HEAD)"
+if grep -q '^APP_VERSION=' /etc/3aksa/3aksa.env; then
+  sed -i "s/^APP_VERSION=.*/APP_VERSION=${CURRENT_VERSION}/" /etc/3aksa/3aksa.env
+else
+  printf '\nAPP_VERSION=%s\n' "${CURRENT_VERSION}" >> /etc/3aksa/3aksa.env
+fi
+chmod 600 /etc/3aksa/3aksa.env
+
 cd "${ROOT}"
 
 docker compose -f "${COMPOSE}" build api
