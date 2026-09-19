@@ -189,8 +189,18 @@ export async function adminUnbanUser(actorUserId:string,userId:string,reason:str
       [user.id,actorUserId]
     );
     await client.query(
-      `DELETE FROM blocked_installations
-       WHERE installation_id IN (SELECT installation_id FROM user_devices WHERE user_id=$1)`,
+      `DELETE FROM blocked_installations bi
+       WHERE bi.installation_id IN (
+         SELECT installation_id FROM user_devices WHERE user_id=$1
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM user_devices other_device
+         JOIN users other_user ON other_user.id=other_device.user_id
+         WHERE other_device.installation_id=bi.installation_id
+           AND other_device.user_id<>$1
+           AND other_user.status IN ('banned','deleted')
+       )`,
       [user.id]
     );
     await client.query('UPDATE user_devices SET blocked_at=NULL WHERE user_id=$1',[user.id]);
