@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiError, type Gender } from '@3aksa/api-client';
 import { useSession } from './session';
 import { api } from './runtime';
@@ -176,7 +177,7 @@ export function AuthScreen(){
           </>
         )}
 
-        <p className="auth-footnote">الرسائل النصية والصوتية تنحذف تلقائيًا بعد 24 ساعة من إنشائها.</p>
+        <Link className="secondary-button link-reset auth-download-link" to="/download">تنزيل عكسة / تثبيت PWA</Link>\n        <p className="auth-footnote">الرسائل النصية والصوتية تنحذف تلقائيًا بعد 24 ساعة من إنشائها.</p>
       </section>
     </main>
   );
