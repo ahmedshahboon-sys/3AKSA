@@ -21,6 +21,9 @@ type ConversationListRow = PrivateConversationRow & {
   peer_username: string;
   peer_display_name: string;
   peer_gender: 'boy' | 'girl';
+  peer_frame_code: string | null;
+  peer_badge_code: string | null;
+  peer_badge_name: string | null;
   last_text: string | null;
   last_message_at: Date | null;
 };
@@ -38,8 +41,8 @@ async function requireUser(request: FastifyRequest, reply: FastifyReply) {
 
 async function lookupUser(username: string) {
   const result = await query<{ id: string; username: string; display_name: string; gender: 'boy' | 'girl' }>(
-    `SELECT id, username, display_name, gender
-     FROM users WHERE username_normalized = $1 AND status = 'active' LIMIT 1`,
+    `SELECT u.id,u.username,u.display_name,u.gender
+     FROM users u WHERE u.username_normalized = $1 AND u.status = 'active' LIMIT 1`,
     [normalizeUsername(username)]
   );
   return result.rows[0] ?? null;
@@ -50,7 +53,8 @@ function peerDto(row: ConversationListRow) {
     id: row.peer_id,
     username: row.peer_username,
     displayName: row.peer_display_name,
-    gender: row.peer_gender
+    gender: row.peer_gender,
+    cosmetics:{frameCode:row.peer_frame_code,badgeCode:row.peer_badge_code,badgeName:row.peer_badge_name}
   };
 }
 
@@ -111,12 +115,14 @@ export async function registerPrivateRoutes(app: FastifyInstance, options: { bas
       `SELECT c.*,
               peer.id AS peer_id, peer.username AS peer_username,
               peer.display_name AS peer_display_name, peer.gender AS peer_gender,
+              cosmetics.frame_code AS peer_frame_code,cosmetics.badge_code AS peer_badge_code,cosmetics.badge_name AS peer_badge_name,
               preview.text_content AS request_text,
               preview.created_at AS last_message_at,
               preview.expires_at AS request_expires_at,
               preview.text_content AS last_text
        FROM private_conversations c
        JOIN users peer ON peer.id = CASE WHEN c.user_low_id = $1 THEN c.user_high_id ELSE c.user_low_id END
+       LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=peer.id
        LEFT JOIN LATERAL (
          SELECT m.text_content, m.created_at, m.expires_at
          FROM private_messages m
@@ -214,10 +220,12 @@ export async function registerPrivateRoutes(app: FastifyInstance, options: { bas
       `SELECT c.*,
               peer.id AS peer_id, peer.username AS peer_username,
               peer.display_name AS peer_display_name, peer.gender AS peer_gender,
+              cosmetics.frame_code AS peer_frame_code,cosmetics.badge_code AS peer_badge_code,cosmetics.badge_name AS peer_badge_name,
               last_message.text_content AS last_text,
               last_message.created_at AS last_message_at
        FROM private_conversations c
        JOIN users peer ON peer.id = CASE WHEN c.user_low_id = $1 THEN c.user_high_id ELSE c.user_low_id END
+       LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=peer.id
        LEFT JOIN LATERAL (
          SELECT m.text_content, m.created_at
          FROM private_messages m
