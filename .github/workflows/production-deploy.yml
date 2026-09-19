@@ -28,12 +28,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          missing=0
           for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
             if [ -z "${!name:-}" ]; then
               echo "::error::Missing required GitHub Actions secret: ${name/SSH_/PRODUCTION_SSH_}"
-              exit 1
+              missing=1
             fi
           done
+          [ "$missing" -eq 0 ] || exit 1
 
       - name: Configure SSH
         shell: bash
