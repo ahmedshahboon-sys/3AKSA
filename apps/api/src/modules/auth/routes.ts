@@ -134,13 +134,24 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
       return reply.code(400).send({ error: 'WEAK_PASSWORD' });
     }
 
-    const registrationLimit = await consumeRateLimit(
-      'auth-register',
-      deviceId ? `device:${deviceId}` : `ip:${request.ip}`,
-      3,
+    const registrationIpLimit = await consumeRateLimit(
+      'auth-register-ip',
+      `ip:${request.ip}`,
+      12,
       60 * 60
     );
-    if (!registrationLimit.allowed) return rateLimited(reply, registrationLimit.retryAfterSeconds);
+    if (!registrationIpLimit.allowed) return rateLimited(reply, registrationIpLimit.retryAfterSeconds);
+    if (deviceId) {
+      const registrationDeviceLimit = await consumeRateLimit(
+        'auth-register-device',
+        `device:${deviceId}`,
+        3,
+        60 * 60
+      );
+      if (!registrationDeviceLimit.allowed) {
+        return rateLimited(reply, registrationDeviceLimit.retryAfterSeconds);
+      }
+    }
 
     if (await installationIsBlocked(deviceId)) {
       return reply.code(403).send({ error: 'DEVICE_BLOCKED' });
@@ -220,6 +231,18 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
       5 * 60
     );
     if (!loginLimit.allowed) return rateLimited(reply, loginLimit.retryAfterSeconds);
+
+    const loginIpLimit = await consumeRateLimit('auth-login-ip', `ip:${request.ip}`, 60, 5 * 60);
+    if (!loginIpLimit.allowed) return rateLimited(reply, loginIpLimit.retryAfterSeconds);
+    if (deviceId) {
+      const loginDeviceLimit = await consumeRateLimit(
+        'auth-login-device',
+        `device:${deviceId}`,
+        30,
+        5 * 60
+      );
+      if (!loginDeviceLimit.allowed) return rateLimited(reply, loginDeviceLimit.retryAfterSeconds);
+    }
 
     if (await installationIsBlocked(deviceId)) return reply.code(403).send({ error: 'DEVICE_BLOCKED' });
 
