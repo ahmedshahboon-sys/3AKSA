@@ -8,6 +8,7 @@ import { LiveRoomsScreen, LiveRoomChatScreen } from './live/rooms';
 import { LiveNearbyScreen } from './live/nearby';
 import { LivePrivateScreen, LiveConversationScreen, LiveNewConversationScreen } from './live/private';
 import { LiveAccountScreen, LiveWalletScreen, LiveStoreScreen } from './live/account';
+import { LiveDevicesScreen } from './live/devices';
 import { LiveTvScreen } from './live/tv';
 import { LiveNotificationsScreen } from './live/notifications';
 import { LivePrayerSettingsScreen } from './live/prayer';
@@ -51,6 +52,7 @@ function AppShell() {
         <Route path="/private/:conversationId" element={<LiveConversationScreen />} />
         <Route path="/account" element={<LiveAccountScreen />} />
         <Route path="/account/prayer" element={<LivePrayerSettingsScreen />} />
+        <Route path="/account/devices" element={<LiveDevicesScreen />} />
         <Route path="/wallet" element={<LiveWalletScreen />} />
         <Route path="/store" element={<LiveStoreScreen />} />
         <Route path="/tv" element={<LiveTvScreen />} />
