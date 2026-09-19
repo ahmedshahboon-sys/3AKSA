@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance,FastifyReply,FastifyRequest } from 'fastify';
 import { query } from '../../db.js';
+import { consumeRateLimit } from '../../rate-limit.js';
 import { deleteStoredFile,storeStoreAsset } from '../../storage.js';
 import { adminContext,auditAdminAction,hasAdminRole,requireAdminMfa } from '../admin/security.js';
 
@@ -95,6 +96,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
   app.get(`${prefix}/items`,async(request,reply)=>{
     const context=await requireStoreAdmin(request,reply);if(!context)return;
     const result=await query<ItemRow>(
+    const limiter=await consumeRateLimit('admin-store-list',`user:${context.user.id}`,120,60);
+    if(!limiter.allowed){
+      reply.header('Retry-After',String(limiter.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limiter.retryAfterSeconds});
+    }
       `SELECT id,code,item_type,name,description,price_milli,recipient_share_milli,
               consumable,asset_key,metadata,status,created_at,updated_at
          FROM store_items ORDER BY item_type,name,id`
@@ -106,6 +112,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
     const context=await requireStoreAdmin(request,reply);if(!context)return;
     try{
       const body=normalizeBody(request.body);
+    const limiter=await consumeRateLimit('admin-store-create',`user:${context.user.id}`,30,60);
+    if(!limiter.allowed){
+      reply.header('Retry-After',String(limiter.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limiter.retryAfterSeconds});
+    }
       const type=body.type!;
       const recipientShare=type==='gift'||type==='reaction'?body.recipientShareMilli??0:0;
       if(recipientShare>body.priceMilli!)throw new Error('INVALID_RECIPIENT_SHARE');
@@ -131,6 +142,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
     const context=await requireStoreAdmin(request,reply);if(!context)return;
     try{
       const current=await item(request.params.itemId);if(!current)throw new Error('STORE_ITEM_NOT_FOUND');
+    const limiter=await consumeRateLimit('admin-store-update',`user:${context.user.id}`,60,60);
+    if(!limiter.allowed){
+      reply.header('Retry-After',String(limiter.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limiter.retryAfterSeconds});
+    }
       const body=normalizeBody(request.body,true);
       const nextType=body.type??current.item_type;
       const nextPrice=body.priceMilli??asInt(current.price_milli);
@@ -164,6 +180,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
   app.delete<{Params:{itemId:string}}>(`${prefix}/items/:itemId`,async(request,reply)=>{
     const context=await requireStoreAdmin(request,reply);if(!context)return;
     const current=await item(request.params.itemId);
+    const limiter=await consumeRateLimit('admin-store-retire',`user:${context.user.id}`,30,60);
+    if(!limiter.allowed){
+      reply.header('Retry-After',String(limiter.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limiter.retryAfterSeconds});
+    }
     if(!current)return reply.code(404).send({error:'STORE_ITEM_NOT_FOUND'});
     await query("UPDATE store_items SET status='hidden',updated_at=now() WHERE id=$1",[current.id]);
     await auditAdminAction(null,context.user.id,'store_item_retired',{metadata:{itemId:current.id,code:current.code}});
@@ -175,7 +196,12 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
     {bodyLimit:1500*1024},
     async(request,reply)=>{
       const context=await requireStoreAdmin(request,reply);if(!context)return;
-      let stored:{storageKey:string;mime:string;bytes:number}|null=null;
+      let stored:
+    const limiter=await consumeRateLimit('admin-store-asset',`user:${context.user.id}`,20,60);
+    if(!limiter.allowed){
+      reply.header('Retry-After',String(limiter.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limiter.retryAfterSeconds});
+    }{storageKey:string;mime:string;bytes:number}|null=null;
       try{
         const current=await item(request.params.itemId);if(!current)throw new Error('STORE_ITEM_NOT_FOUND');
         const raw=request.body.base64?.trim()??'';
