@@ -261,7 +261,7 @@ export function LiveRoomChatScreen(){
           const mine=message.sender?.id===user?.id;
           return (
             <article className={mine?'message-row mine':'message-row'} key={message.id}>
-              {!mine?<Avatar name={message.sender?.displayName||'مستخدم'} gender={genderToUi(message.sender?.gender)}/>:null}
+              {!mine?<Avatar name={message.sender?.displayName||'مستخدم'} gender={genderToUi(message.sender?.gender)} cosmetics={message.sender?.cosmetics}/>:null}
               <div>
                 <div className="message-author"><b>{mine?'أنت':message.sender?.displayName||'مستخدم'}</b><time>{localTime(message.createdAt)}</time></div>
                 {message.type==='voice'?(
