@@ -30,8 +30,8 @@ CREATE TABLE telemetry_events (
   app_version varchar(40) NOT NULL,
   platform varchar(24) NOT NULL,
   context jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  expires_at timestamptz NOT NULL DEFAULT (clock_timestamp() + interval '24 hours'),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '24 hours'),
   CHECK (expires_at <= created_at + interval '24 hours')
 );
 
