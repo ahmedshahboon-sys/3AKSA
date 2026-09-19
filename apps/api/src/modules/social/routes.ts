@@ -192,6 +192,10 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
     }
     if(language!==undefined&&language!=='ar'&&language!=='en')return reply.code(400).send({error:'INVALID_LANGUAGE'});
     if(profileVisibility!==undefined&&profileVisibility!=='public'&&profileVisibility!=='friends')return reply.code(400).send({error:'INVALID_PROFILE_VISIBILITY'});
+    if(nearbyEnabled===true&&nearbyConsent!==true){
+      const consent=await query<{nearby_consent_at:Date|null}>('SELECT nearby_consent_at FROM users WHERE id=$1 LIMIT 1',[auth.id]);
+      if(!consent.rows[0]?.nearby_consent_at)return reply.code(409).send({error:'NEARBY_CONSENT_REQUIRED'});
+    }
     if (
       nearbyEnabled === undefined &&
       mutualSuggestionsEnabled === undefined &&
