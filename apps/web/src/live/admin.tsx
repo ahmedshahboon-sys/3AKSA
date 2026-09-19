@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type {
-  AdminAuditEntry, AdminOverview, AdminReport, AdminTopup, AdminUserDetail, AdminUserSummary
+  AdminAuditEntry, AdminOverview, AdminRecoveryRequest, AdminReport, AdminTopup, AdminUserDetail, AdminUserSummary
 } from '@3aksa/api-client';
 import { api } from '../runtime';
 import { readableError, useApiResource } from '../useApiResource';
@@ -13,6 +13,7 @@ type AdminData={
   reports:AdminReport[];
   topups:AdminTopup[];
   audit:AdminAuditEntry[];
+  recovery:AdminRecoveryRequest[];
 };
 
 export function LiveAdminScreen(){
@@ -29,16 +30,17 @@ export function LiveAdminScreen(){
   const [moderationReason,setModerationReason]=useState('');
   const [newPassword,setNewPassword]=useState('');
   const [breakGlass,setBreakGlass]=useState<Awaited<ReturnType<typeof api.adminBreakGlassPrivate>>|null>(null);
+  const [recoveryCode,setRecoveryCode]=useState<{username:string;requestId:string;code:string;expiresAt:string}|null>(null);
 
   async function load(code=unlockedCode){
     if(!code)return;
-    const [overview,users,reports,topups,audit]=await Promise.all([
+    const [overview,users,reports,topups,audit,recovery]=await Promise.all([
       api.adminOverview(code),api.adminUsers(code,{limit:50}),api.adminReports(code),
-      api.adminTopups(code),api.adminAudit(code,100)
+      api.adminTopups(code),api.adminAudit(code,100),api.adminRecoveryRequests(code)
     ]);
     setData({
       overview:overview.overview,users:users.users,reports:reports.reports,
-      topups:topups.topups,audit:audit.audit
+      topups:topups.topups,audit:audit.audit,recovery:recovery.requests
     });
   }
 
@@ -64,11 +66,11 @@ export function LiveAdminScreen(){
     try{
       const code=mfaCode.trim();
       const overview=await api.adminOverview(code);
-      const [users,reports,topups,audit]=await Promise.all([
-        api.adminUsers(code,{limit:50}),api.adminReports(code),api.adminTopups(code),api.adminAudit(code,100)
+      const [users,reports,topups,audit,recovery]=await Promise.all([
+        api.adminUsers(code,{limit:50}),api.adminReports(code),api.adminTopups(code),api.adminAudit(code,100),api.adminRecoveryRequests(code)
       ]);
       setUnlockedCode(code);
-      setData({overview:overview.overview,users:users.users,reports:reports.reports,topups:topups.topups,audit:audit.audit});
+      setData({overview:overview.overview,users:users.users,reports:reports.reports,topups:topups.topups,audit:audit.audit,recovery:recovery.requests});
     }catch(err){setError(readableError(err));}finally{setBusy(false);}
   }
 
@@ -105,6 +107,27 @@ export function LiveAdminScreen(){
       setModerationReason('');setNewPassword('');
       await Promise.all([load(),openUser(selected.id)]);
     }catch(err){setError(readableError(err));}finally{setBusy(false);}
+  }
+
+  async function reviewRecovery(request:AdminRecoveryRequest,approve:boolean){
+    setBusy(true);setError('');setNotice('');setRecoveryCode(null);
+    try{
+      if(approve){
+        const result=await api.adminApproveRecovery(unlockedCode,request.requestId);
+        setRecoveryCode({
+          username:result.recovery.username,
+          requestId:result.recovery.requestId,
+          code:result.recovery.recoveryCode,
+          expiresAt:result.recovery.expiresAt
+        });
+        setNotice('تمت الموافقة. سلّم الرمز للمستخدم عبر قناة موثوقة؛ الرمز مؤقت ويظهر هنا الآن فقط.');
+      }else{
+        await api.adminRejectRecovery(unlockedCode,request.requestId);
+        setNotice('تم رفض طلب الاسترجاع وتسجيل العملية ✅');
+      }
+      await load();
+    }catch(err){setError(readableError(err));}
+    finally{setBusy(false);}
   }
 
   async function reviewTopup(id:string,approve:boolean){
@@ -214,6 +237,19 @@ export function LiveAdminScreen(){
       </div>
       {selected.status==='active'?<><label><span>كلمة مرور جديدة للاستعادة</span><input type="password" value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} minLength={8}/></label><button className="secondary-button" type="button" disabled={busy} onClick={()=>void moderate('reset')}>إعادة تعيين كلمة المرور</button></>:null}
     </section>:null}
+
+    <SectionTitle title="طلبات استرجاع الحساب"/>
+    {recoveryCode?<section className="live-form danger-zone" role="status">
+      <b>رمز استرجاع مؤقت لـ @{recoveryCode.username}</b>
+      <label><span>Request ID</span><input readOnly value={recoveryCode.requestId} dir="ltr"/></label>
+      <label><span>Recovery Code</span><input readOnly value={recoveryCode.code} dir="ltr"/></label>
+      <small>ينتهي: {new Date(recoveryCode.expiresAt).toLocaleString('ar-LY')}</small>
+      <p className="muted">لا ترسل الرمز علنًا ولا تحفظه في ملاحظات غير آمنة.</p>
+    </section>:null}
+    <div className="settings-list">{data.recovery.length?data.recovery.map((request)=><article className="setting-static" key={request.requestId}>
+      <span><b>@{request.username}</b><small>{request.displayName} · {relativeTime(request.createdAt)}</small><small dir="ltr">{request.requestId}</small></span>
+      <div className="admin-actions"><button className="primary-button small" disabled={busy} onClick={()=>void reviewRecovery(request,true)}>موافقة</button><button className="secondary-button" disabled={busy} onClick={()=>void reviewRecovery(request,false)}>رفض</button></div>
+    </article>):<div className="empty-state-inline">لا توجد طلبات استرجاع معلقة.</div>}</div>
 
     <SectionTitle title="طلبات شحن الرصيد"/>
     <div className="settings-list">{data.topups.length?data.topups.map((topup)=><article className="setting-static" key={topup.id}><span><b>@{topup.user.username}</b><small>{(topup.amountMilli/1000).toFixed(3)} د.ل · {relativeTime(topup.createdAt)}</small></span><div className="admin-actions"><button className="primary-button small" disabled={busy} onClick={()=>void reviewTopup(topup.id,true)}>قبول</button><button className="secondary-button" disabled={busy} onClick={()=>void reviewTopup(topup.id,false)}>رفض</button></div></article>):<div className="empty-state-inline">لا توجد طلبات معلقة.</div>}</div>
