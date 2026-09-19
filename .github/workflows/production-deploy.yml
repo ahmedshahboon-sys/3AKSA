@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release/1.0.1-public-beta
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -56,47 +57,7 @@ jobs:
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" \
-            "bash -s -- '$GITHUB_SHA'" <<'REMOTE'
-          set -Eeuo pipefail
-          EXPECTED_SHA="$1"
-          ROOT=/opt/3aksa
-          BRANCH=release/1.0.1-public-beta
-
-          as_root() {
-            if [ "$(id -u)" -eq 0 ]; then
-              "$@"
-            else
-              sudo -n "$@"
-            fi
-          }
-
-          if [ ! -d "$ROOT/.git" ]; then
-            echo "Missing 3AKSA repository at $ROOT" >&2
-            exit 20
-          fi
-
-          cd "$ROOT"
-          git fetch --prune origin "$BRANCH"
-          git checkout -B "$BRANCH" "origin/$BRANCH"
-          git reset --hard "origin/$BRANCH"
-
-          ACTUAL_SHA="$(git rev-parse HEAD)"
-          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
-            echo "Release SHA mismatch: expected=$EXPECTED_SHA actual=$ACTUAL_SHA" >&2
-            exit 21
-          fi
-
-          if [ -s /etc/3aksa/3aksa.env ]; then
-            as_root bash -lc 'set -Eeuo pipefail; set -a; source /etc/3aksa/3aksa.env; set +a; cd /opt/3aksa; bash scripts/ops/backup.sh'
-          else
-            echo "First deployment: no existing /etc/3aksa/3aksa.env, backup step skipped."
-          fi
-
-          as_root bash "$ROOT/infra/server/deploy-trial.sh"
-          bash "$ROOT/infra/server/verify-production.sh"
-
-          echo "DEPLOYED_SHA=$ACTUAL_SHA"
-          REMOTE
+            "3aksa-github-deploy $GITHUB_SHA"
 
       - name: Public post-deploy smoke
         shell: bash
