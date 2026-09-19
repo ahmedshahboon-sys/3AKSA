@@ -6,7 +6,7 @@ x-runtime: &runtime
     context: ../..
     dockerfile: infra/docker/Dockerfile.server
   env_file:
-    - /etc/3aksa/3aksa.env
+    - ${THREEAKSA_ENV_FILE:-/etc/3aksa/3aksa.env}
   environment:
     HOME: /tmp
   user: "1000:1000"
