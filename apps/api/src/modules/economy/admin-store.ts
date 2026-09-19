@@ -94,6 +94,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
   const prefix=`${options.basePath}/admin/store`;
 
   app.get(`${prefix}/items`,async(request,reply)=>{
+    const flood=await consumeRateLimit('admin-store-list-ip',`ip:${request.ip}`,300,60);
+    if(!flood.allowed){
+      reply.header('Retry-After',String(flood.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});
+    }
     const context=await requireStoreAdmin(request,reply);if(!context)return;
     const limiter=await consumeRateLimit('admin-store-list',`user:${context.user.id}`,120,60);
     if(!limiter.allowed){
@@ -109,6 +114,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
   });
 
   app.post<{Body:ItemBody}>(`${prefix}/items`,async(request,reply)=>{
+    const flood=await consumeRateLimit('admin-store-create-ip',`ip:${request.ip}`,90,60);
+    if(!flood.allowed){
+      reply.header('Retry-After',String(flood.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});
+    }
     const context=await requireStoreAdmin(request,reply);if(!context)return;
     try{
       const body=normalizeBody(request.body);
@@ -139,6 +149,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
   });
 
   app.patch<{Params:{itemId:string};Body:ItemBody}>(`${prefix}/items/:itemId`,async(request,reply)=>{
+    const flood=await consumeRateLimit('admin-store-update-ip',`ip:${request.ip}`,180,60);
+    if(!flood.allowed){
+      reply.header('Retry-After',String(flood.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});
+    }
     const context=await requireStoreAdmin(request,reply);if(!context)return;
     try{
       const current=await item(request.params.itemId);if(!current)throw new Error('STORE_ITEM_NOT_FOUND');
@@ -178,6 +193,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
   });
 
   app.delete<{Params:{itemId:string}}>(`${prefix}/items/:itemId`,async(request,reply)=>{
+    const flood=await consumeRateLimit('admin-store-retire-ip',`ip:${request.ip}`,90,60);
+    if(!flood.allowed){
+      reply.header('Retry-After',String(flood.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});
+    }
     const context=await requireStoreAdmin(request,reply);if(!context)return;
     const current=await item(request.params.itemId);
     const limiter=await consumeRateLimit('admin-store-retire',`user:${context.user.id}`,30,60);
@@ -195,6 +215,11 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
     `${prefix}/items/:itemId/asset`,
     {bodyLimit:1500*1024},
     async(request,reply)=>{
+    const flood=await consumeRateLimit('admin-store-asset-ip',`ip:${request.ip}`,60,60);
+    if(!flood.allowed){
+      reply.header('Retry-After',String(flood.retryAfterSeconds));
+      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});
+    }
       const context=await requireStoreAdmin(request,reply);if(!context)return;
       const limiter=await consumeRateLimit('admin-store-asset',`user:${context.user.id}`,20,60);
       if(!limiter.allowed){
