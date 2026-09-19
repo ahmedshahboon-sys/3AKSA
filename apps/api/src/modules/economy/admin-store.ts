@@ -95,12 +95,12 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
 
   app.get(`${prefix}/items`,async(request,reply)=>{
     const context=await requireStoreAdmin(request,reply);if(!context)return;
-    const result=await query<ItemRow>(
     const limiter=await consumeRateLimit('admin-store-list',`user:${context.user.id}`,120,60);
     if(!limiter.allowed){
       reply.header('Retry-After',String(limiter.retryAfterSeconds));
       return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limiter.retryAfterSeconds});
     }
+    const result=await query<ItemRow>(
       `SELECT id,code,item_type,name,description,price_milli,recipient_share_milli,
               consumable,asset_key,metadata,status,created_at,updated_at
          FROM store_items ORDER BY item_type,name,id`
@@ -196,12 +196,12 @@ export async function registerAdminStoreRoutes(app:FastifyInstance,options:{base
     {bodyLimit:1500*1024},
     async(request,reply)=>{
       const context=await requireStoreAdmin(request,reply);if(!context)return;
-      let stored:
-    const limiter=await consumeRateLimit('admin-store-asset',`user:${context.user.id}`,20,60);
-    if(!limiter.allowed){
-      reply.header('Retry-After',String(limiter.retryAfterSeconds));
-      return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limiter.retryAfterSeconds});
-    }{storageKey:string;mime:string;bytes:number}|null=null;
+      const limiter=await consumeRateLimit('admin-store-asset',`user:${context.user.id}`,20,60);
+      if(!limiter.allowed){
+        reply.header('Retry-After',String(limiter.retryAfterSeconds));
+        return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limiter.retryAfterSeconds});
+      }
+      let stored:{storageKey:string;mime:string;bytes:number}|null=null;
       try{
         const current=await item(request.params.itemId);if(!current)throw new Error('STORE_ITEM_NOT_FOUND');
         const raw=request.body.base64?.trim()??'';
