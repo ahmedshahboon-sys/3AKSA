@@ -60,6 +60,40 @@ export type Room = {
   onlineCount?: number;
 };
 
+export type RoomManagement = {
+  room: Room;
+  permissions: {
+    owner:boolean;
+    canEditRoom:boolean;
+    canManageModerators:boolean;
+    canModerate:boolean;
+  };
+  moderators:Array<{username:string;displayName:string;createdAt:string}>;
+  bans:Array<{username:string;displayName:string;reason:string|null;expiresAt:string|null;createdAt:string}>;
+  invites:Array<{username:string;displayName:string;expiresAt:string|null;createdAt:string}>;
+};
+
+export type TvAdminChannel = TvChannel & {
+  sortOrder:number;
+  status:'active'|'hidden';
+  rightsConfirmed:boolean;
+  rightsNote:string|null;
+  createdAt:string;
+  updatedAt:string;
+};
+
+export type TvImportBatch = {
+  id:string;
+  sourceType:'upload'|'url';
+  sourceLabel:string|null;
+  sourceHost:string|null;
+  sourceFingerprint:string|null;
+  rightsAttested:boolean;
+  importedCount:number;
+  skippedCount:number;
+  createdAt:string;
+};
+
 export type Profile = {
   id: string;
   username: string;
@@ -477,6 +511,46 @@ export class ApiClient {
     return this.request<void>(`/rooms/${encodeURIComponent(roomId)}/favorite`, { method: active ? 'POST' : 'DELETE' });
   }
 
+  roomManagement(roomId:string){
+    return this.request<{management:RoomManagement}>(`/rooms/${encodeURIComponent(roomId)}/management`);
+  }
+
+  updateRoom(roomId:string,patch:Partial<Pick<Room,'name'|'description'|'visibility'|'genderPolicy'|'maxUsers'|'status'>>){
+    return this.request<{room:Room}>(`/rooms/${encodeURIComponent(roomId)}`,{
+      method:'PATCH',body:JSON.stringify(patch)
+    });
+  }
+
+  addRoomModerator(roomId:string,username:string){
+    return this.request<{ok:true}>(`/rooms/${encodeURIComponent(roomId)}/moderators`,{
+      method:'POST',body:JSON.stringify({username})
+    });
+  }
+
+  removeRoomModerator(roomId:string,username:string){
+    return this.request<void>(`/rooms/${encodeURIComponent(roomId)}/moderators/${encodeURIComponent(username)}`,{method:'DELETE'});
+  }
+
+  banRoomUser(roomId:string,input:{username:string;reason?:string;expiresAt?:string|null}){
+    return this.request<{ok:true}>(`/rooms/${encodeURIComponent(roomId)}/bans`,{
+      method:'POST',body:JSON.stringify(input)
+    });
+  }
+
+  unbanRoomUser(roomId:string,username:string){
+    return this.request<void>(`/rooms/${encodeURIComponent(roomId)}/bans/${encodeURIComponent(username)}`,{method:'DELETE'});
+  }
+
+  inviteRoomUser(roomId:string,input:{username:string;expiresAt?:string|null}){
+    return this.request<{ok:true}>(`/rooms/${encodeURIComponent(roomId)}/invites`,{
+      method:'POST',body:JSON.stringify(input)
+    });
+  }
+
+  revokeRoomInvite(roomId:string,username:string){
+    return this.request<void>(`/rooms/${encodeURIComponent(roomId)}/invites/${encodeURIComponent(username)}`,{method:'DELETE'});
+  }
+
   joinCheck(roomId: string) {
     return this.request<{ allowed: true; roomId: string; maxUsers: number }>(
       `/rooms/${encodeURIComponent(roomId)}/join-check`,
@@ -678,6 +752,54 @@ export class ApiClient {
 
   tvChannels(params: { sort?: 'manual'|'alphabetical'; search?: string; group?: string; limit?: number } = {}) {
     return this.request<{ channels: TvChannel[] }>(withQuery('/tv/channels', params));
+  }
+
+  adminTvChannels(){
+    return this.request<{channels:TvAdminChannel[]}>('/tv/admin/channels');
+  }
+
+  createAdminTvChannel(input:{
+    name:string;groupName?:string|null;streamUrl:string;logoUrl?:string|null;sortOrder?:number;
+    status?:'active'|'hidden';rightsAttested:boolean;rightsNote?:string|null;
+  }){
+    return this.request<{channel:TvAdminChannel}>('/tv/admin/channels',{method:'POST',body:JSON.stringify(input)});
+  }
+
+  updateAdminTvChannel(channelId:string,patch:Partial<{
+    name:string;groupName:string|null;streamUrl:string;logoUrl:string|null;sortOrder:number;
+    status:'active'|'hidden';rightsAttested:boolean;rightsNote:string|null;
+  }>){
+    return this.request<{channel:TvAdminChannel}>(`/tv/admin/channels/${encodeURIComponent(channelId)}`,{
+      method:'PATCH',body:JSON.stringify(patch)
+    });
+  }
+
+  deleteAdminTvChannel(channelId:string){
+    return this.request<{deleted:unknown}>(`/tv/admin/channels/${encodeURIComponent(channelId)}`,{method:'DELETE'});
+  }
+
+  deleteAllAdminTvChannels(){
+    return this.request<{deletedCount:number}>('/tv/admin/channels',{
+      method:'DELETE',headers:{'X-Confirm-Delete-All':'DELETE_ALL_TV_CHANNELS'}
+    });
+  }
+
+  reorderAdminTvChannels(channelIds:string[]){
+    return this.request<{reordered:number}>('/tv/admin/channels/order',{
+      method:'PUT',body:JSON.stringify({channelIds})
+    });
+  }
+
+  importAdminM3u(input:{
+    content?:string;sourceUrl?:string;sourceLabel?:string|null;rightsAttested:boolean;rightsNote?:string|null;
+  }){
+    return this.request<{import:{batchId:string;imported:number;skipped:number;total:number}}>('/tv/admin/imports/m3u',{
+      method:'POST',body:JSON.stringify(input)
+    });
+  }
+
+  adminTvImports(){
+    return this.request<{imports:TvImportBatch[]}>('/tv/admin/imports');
   }
 
   roomTv(roomId: string) {
