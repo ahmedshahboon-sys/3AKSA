@@ -73,7 +73,7 @@ export function LiveNearbyScreen(){
       <LiveState loading={resource.loading} error={resource.error} empty={enabled&&!resource.data?.nearbyError&&!people.length}>
         <div className="stack">{people.map((person)=>(
           <article className="person-card" key={person.id}>
-            <Avatar name={person.displayName} gender={genderToUi(person.gender)}/>
+            <Avatar name={person.displayName} gender={genderToUi(person.gender)} cosmetics={person.cosmetics}/>
             <div className="grow"><h3>{person.displayName} <span className="gender-symbol">{person.gender==='boy'?'♂':'♀'}</span></h3><p>{person.distanceLabel}{person.bio?' · '+person.bio:''}</p></div>
             <div className="person-actions"><button className="secondary-button" type="button" onClick={()=>void addFriend(person.username)}>إضافة</button><button className="secondary-button" type="button" onClick={()=>navigate('/private/new/'+encodeURIComponent(person.username))}>مراسلة</button><button className="secondary-button" type="button" onClick={()=>navigate('/profiles/'+encodeURIComponent(person.username))}>الملف</button><button className="secondary-button" type="button" onClick={()=>navigate('/profiles/'+encodeURIComponent(person.username)+'?report=1')}>بلاغ</button><button className="secondary-button" type="button" onClick={()=>void blockUser(person.username)}>حظر</button></div>
           </article>
