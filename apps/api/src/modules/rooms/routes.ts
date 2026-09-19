@@ -402,11 +402,20 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
     if (target.id === auth.id) return reply.code(400).send({ error: 'CANNOT_BAN_SELF' });
     const reason = request.body.reason?.trim() || null;
     if (reason && reason.length > 240) return reply.code(400).send({ error: 'BAN_REASON_TOO_LONG' });
+    let expiresAt: Date | null = null;
+    if (request.body.expiresAt) {
+      expiresAt = new Date(request.body.expiresAt);
+      const maxExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now() || expiresAt.getTime() > maxExpiry) {
+        return reply.code(400).send({ error: 'INVALID_BAN_EXPIRY' });
+      }
+    }
     await withTransaction(async (client) => {
       await client.query(
-        `INSERT INTO room_bans (room_id, user_id, banned_by, reason) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (room_id, user_id) DO UPDATE SET banned_by = EXCLUDED.banned_by, reason = EXCLUDED.reason, created_at = now()`,
-        [request.params.roomId, target.id, auth.id, reason]
+        `INSERT INTO room_bans (room_id, user_id, banned_by, reason, expires_at) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (room_id, user_id) DO UPDATE SET banned_by = EXCLUDED.banned_by, reason = EXCLUDED.reason,
+           expires_at = EXCLUDED.expires_at, created_at = now()`,
+        [request.params.roomId, target.id, auth.id, reason, expiresAt]
       );
       await client.query('DELETE FROM room_moderators WHERE room_id = $1 AND user_id = $2', [request.params.roomId, target.id]);
       await client.query('DELETE FROM room_invites WHERE room_id = $1 AND user_id = $2', [request.params.roomId, target.id]);
@@ -445,7 +454,7 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
       }
     }
 
-    const banned = await query('SELECT 1 FROM room_bans WHERE room_id = $1 AND user_id = $2 LIMIT 1', [request.params.roomId, target.id]);
+    const banned = await query('SELECT 1 FROM room_bans WHERE room_id = $1 AND user_id = $2 AND (expires_at IS NULL OR expires_at > now()) LIMIT 1', [request.params.roomId, target.id]);
     if ((banned.rowCount ?? 0) > 0) return reply.code(409).send({ error: 'USER_BANNED_FROM_ROOM' });
 
     await query(
@@ -476,7 +485,7 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
     const room = await lookupRoom(request.params.roomId, auth.id);
     if (!room || room.status !== 'active') return reply.code(404).send({ error: 'ROOM_NOT_FOUND' });
 
-    const banned = await query('SELECT 1 FROM room_bans WHERE room_id = $1 AND user_id = $2 LIMIT 1', [room.id, auth.id]);
+    const banned = await query('SELECT 1 FROM room_bans WHERE room_id = $1 AND user_id = $2 AND (expires_at IS NULL OR expires_at > now()) LIMIT 1', [room.id, auth.id]);
     if ((banned.rowCount ?? 0) > 0) return reply.code(403).send({ error: 'ROOM_BANNED' });
     if (room.gender_policy === 'boys' && auth.gender !== 'boy') return reply.code(403).send({ error: 'ROOM_BOYS_ONLY' });
     if (room.gender_policy === 'girls' && auth.gender !== 'girl') return reply.code(403).send({ error: 'ROOM_GIRLS_ONLY' });
