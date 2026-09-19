@@ -1,6 +1,6 @@
 import type { FastifyInstance,FastifyReply,FastifyRequest } from 'fastify';
 import {
-  adminContext,adminMfaState,beginMfaEnrollment,confirmMfaEnrollment,
+  adminContext,adminMfaState,auditAdminAction,beginMfaEnrollment,confirmMfaEnrollment,
   hasAdminRole,requireAdminMfa
 } from './security.js';
 import {
@@ -9,6 +9,9 @@ import {
   adminOverview,adminRejectTopup,adminResetPassword,adminReviewReport,
   adminUnbanUser,adminUserDetail
 } from './service.js';
+import {
+  approveRecoveryRequest,listPendingRecoveryRequests,rejectRecoveryRequest
+} from '../auth/recovery.js';
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -25,7 +28,7 @@ async function superAdmin(request:FastifyRequest,reply:FastifyReply,withMfa=true
 
 function adminError(reply:FastifyReply,error:unknown){
   const code=error instanceof Error?error.message:'ADMIN_OPERATION_FAILED';
-  if(code==='ADMIN_USER_NOT_FOUND'||code==='ADMIN_REPORT_NOT_FOUND'||code==='TOPUP_REQUEST_NOT_FOUND'||code==='CONVERSATION_NOT_FOUND'){
+  if(code==='ADMIN_USER_NOT_FOUND'||code==='ADMIN_REPORT_NOT_FOUND'||code==='TOPUP_REQUEST_NOT_FOUND'||code==='CONVERSATION_NOT_FOUND'||code==='RECOVERY_REQUEST_NOT_FOUND'){
     return reply.code(404).send({error:code});
   }
   if(code==='SUPER_ADMIN_TARGET_PROTECTED'||code==='ADMIN_USER_ALREADY_DELETED'||code==='ADMIN_USER_NOT_ACTIVE'||code==='TOPUP_REQUEST_NOT_PENDING'){
@@ -72,6 +75,39 @@ export async function registerAdminRoutes(app:FastifyInstance,options:{basePath:
     const context=await superAdmin(request,reply);
     if(!context)return;
     return reply.send({overview:await adminOverview()});
+  });
+
+  app.get<{Querystring:{limit?:string}}>(`${prefix}/recovery`,async(request,reply)=>{
+    const context=await superAdmin(request,reply);
+    if(!context)return;
+    const limit=Math.min(Math.max(Number(request.query.limit)||100,1),200);
+    return reply.send({requests:await listPendingRecoveryRequests(limit)});
+  });
+
+  app.post<{Params:{requestId:string}}>(`${prefix}/recovery/:requestId/approve`,async(request,reply)=>{
+    const context=await superAdmin(request,reply);
+    if(!context)return;
+    try{
+      const result=await approveRecoveryRequest(context.user.id,request.params.requestId);
+      await auditAdminAction(null,context.user.id,'password_recovery_approved',{
+        targetUserId:result.userId,
+        metadata:{requestId:result.requestId}
+      });
+      return reply.send({recovery:result});
+    }catch(error){return adminError(reply,error);}
+  });
+
+  app.post<{Params:{requestId:string}}>(`${prefix}/recovery/:requestId/reject`,async(request,reply)=>{
+    const context=await superAdmin(request,reply);
+    if(!context)return;
+    try{
+      const result=await rejectRecoveryRequest(context.user.id,request.params.requestId);
+      await auditAdminAction(null,context.user.id,'password_recovery_rejected',{
+        targetUserId:result.userId,
+        metadata:{requestId:result.requestId}
+      });
+      return reply.send({recovery:result});
+    }catch(error){return adminError(reply,error);}
   });
 
   app.get<{Querystring:{search?:string;status?:string;limit?:string}}>(`${prefix}/users`,async(request,reply)=>{
