@@ -46,7 +46,7 @@ location ^~ /3aksa/socket.io/ {
     proxy_send_timeout 75s;
 }
 
-location ^~ /3aksa/ {
+location /3aksa/ {
     root /var/www/3aksa;
     try_files $uri $uri/ /3aksa/index.html;
 
