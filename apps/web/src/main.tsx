@@ -10,6 +10,8 @@ import { App } from './App';
 import { AppErrorBoundary } from './ErrorBoundary';
 import { SessionProvider } from './session';
 import { applyTheme, getInitialTheme } from './theme';
+import { getLanguage,setLanguage } from './i18n';
+import { installTelemetry } from './telemetry';
 import './styles.css';
 import './phase1.css';
 
@@ -17,6 +19,8 @@ const basePath = normalizeBasePath(import.meta.env.VITE_PUBLIC_BASE_PATH || '/3a
 const routerBasename = basePath === '/' ? '/' : basePath.slice(0, -1);
 
 applyTheme(getInitialTheme());
+setLanguage(getLanguage());
+installTelemetry();
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
