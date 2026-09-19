@@ -7,6 +7,7 @@ import '@fontsource/readex-pro/600.css';
 import '@fontsource/readex-pro/700.css';
 import { normalizeBasePath } from '@3aksa/config';
 import { App } from './App';
+import { AppErrorBoundary } from './ErrorBoundary';
 import { SessionProvider } from './session';
 import { applyTheme, getInitialTheme } from './theme';
 import './styles.css';
@@ -27,10 +28,12 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <SessionProvider>
-      <BrowserRouter basename={routerBasename}>
-        <App />
-      </BrowserRouter>
-    </SessionProvider>
+    <AppErrorBoundary>
+      <SessionProvider>
+        <BrowserRouter basename={routerBasename}>
+          <App />
+        </BrowserRouter>
+      </SessionProvider>
+    </AppErrorBoundary>
   </React.StrictMode>,
 );
