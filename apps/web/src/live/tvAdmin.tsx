@@ -9,6 +9,7 @@ const MAX_PLAYLIST_BYTES=2*1024*1024;
 
 export function LiveTvAdminScreen(){
   const [search,setSearch]=useState('');
+  const [group,setGroup]=useState('');
   const [editing,setEditing]=useState<TvAdminChannel|null>(null);
   const [busy,setBusy]=useState('');
   const [error,setError]=useState('');
@@ -19,7 +20,8 @@ export function LiveTvAdminScreen(){
     const [channels,imports]=await Promise.all([api.adminTvChannels(),api.adminTvImports()]);
     return {channels:channels.channels,imports:imports.imports};
   },[]);
-  const visible=useMemo(()=>(resource.data?.channels??[]).filter((channel)=>!search||channel.name.toLowerCase().includes(search.toLowerCase())||channel.groupName?.toLowerCase().includes(search.toLowerCase())),[resource.data,search]);
+  const groups=useMemo(()=>[...new Set((resource.data?.channels??[]).map((channel)=>channel.groupName).filter((value):value is string=>Boolean(value)))].sort((a,b)=>a.localeCompare(b,'ar')),[resource.data]);
+  const visible=useMemo(()=>(resource.data?.channels??[]).filter((channel)=>(!group||channel.groupName===group)&&(!search||channel.name.toLowerCase().includes(search.toLowerCase())||channel.groupName?.toLowerCase().includes(search.toLowerCase()))),[resource.data,search,group]);
 
   async function run(label:string,action:()=>Promise<unknown>){
     setBusy(label);setError('');setNotice('');
@@ -110,7 +112,7 @@ export function LiveTvAdminScreen(){
       </form>
 
       <SectionTitle title="القنوات"/>
-      <div className="admin-actions"><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="بحث باسم القناة أو المجموعة"/><button className="secondary-button" type="button" disabled={busy==='order'} onClick={()=>void alphabetical()}>ترتيب أبجدي</button><button className="logout-button" type="button" disabled={busy==='delete-all'} onClick={()=>void removeAll()}>حذف الكل</button></div>
+      <div className="admin-actions"><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="بحث باسم القناة أو المجموعة"/><select value={group} onChange={(event)=>setGroup(event.target.value)} aria-label="تصفية حسب المجموعة"><option value="">كل المجموعات</option>{groups.map((item)=><option key={item} value={item}>{item}</option>)}</select><button className="secondary-button" type="button" disabled={busy==='order'||Boolean(search||group)} onClick={()=>void alphabetical()}>ترتيب أبجدي</button><button className="logout-button" type="button" disabled={busy==='delete-all'} onClick={()=>void removeAll()}>حذف الكل</button></div>
       <div className="settings-list">{visible.length?visible.map((channel,index)=><article className="setting-static" key={channel.id}>
         <span><b>{channel.name}</b><small>{channel.groupName||'بدون مجموعة'} · {channel.status==='active'?'منشورة':'مخفية'} · ترتيب {channel.sortOrder}</small></span>
         <div className="admin-actions">
