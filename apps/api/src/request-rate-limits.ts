@@ -1,18 +1,19 @@
 import { createHash } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance,FastifyRequest } from 'fastify';
 import { consumeRateLimit } from './rate-limit.js';
+import { sessionTokenFromRequest } from './modules/auth/session.js';
 
-function requestSubject(authorization: string | undefined, ip: string) {
-  const token = authorization?.trim();
-  if (!token) return `ip:${ip}`;
-  const tokenHash = createHash('sha256').update(token).digest('hex');
-  return `auth:${tokenHash}`;
+export function requestSubject(request:Pick<FastifyRequest,'headers'|'ip'>) {
+  const token=sessionTokenFromRequest(request as FastifyRequest);
+  if(!token)return `ip:${request.ip}`;
+  const tokenHash=createHash('sha256').update(token).digest('hex');
+  return `session:${tokenHash}`;
 }
 
 export function registerRequestRateLimits(app: FastifyInstance) {
   app.addHook('preHandler', async (request, reply) => {
     const route = request.routeOptions.url ?? '';
-    const subject = requestSubject(request.headers.authorization, request.ip);
+    const subject = requestSubject(request);
 
     let bucket: string | null = null;
     let limit = 0;
@@ -111,12 +112,32 @@ export function registerRequestRateLimits(app: FastifyInstance) {
 
     if (!bucket) return;
     const result = await consumeRateLimit(bucket, subject, limit, windowSeconds);
-    if (result.allowed) return;
+    if(!result.allowed){
+      reply.header('Retry-After',String(result.retryAfterSeconds));
+      return reply.code(429).send({
+        error:'RATE_LIMITED',
+        retryAfterSeconds:result.retryAfterSeconds
+      });
+    }
 
-    reply.header('Retry-After', String(result.retryAfterSeconds));
-    return reply.code(429).send({
-      error: 'RATE_LIMITED',
-      retryAfterSeconds: result.retryAfterSeconds
-    });
+    // Authenticated users get independent quotas even when many users share one NAT.
+    // IP remains a separate, deliberately higher flood ceiling.
+    if(subject.startsWith('session:')){
+      const flood=await consumeRateLimit(
+        `${bucket}-ip-flood`,
+        `ip:${request.ip}`,
+        Math.max(limit*20,200),
+        windowSeconds
+      );
+      if(!flood.allowed){
+        reply.header('Retry-After',String(flood.retryAfterSeconds));
+        return reply.code(429).send({
+          error:'RATE_LIMITED',
+          retryAfterSeconds:flood.retryAfterSeconds
+        });
+      }
+    }
+    return;
+    
   });
 }
