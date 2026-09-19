@@ -16,6 +16,31 @@ export type AuthSession = {
   expiresAt: string;
 };
 
+export type AuthDevice = {
+  installationId:string;
+  platform:string|null;
+  firstSeenAt:string;
+  lastSeenAt:string;
+  activeSessions:number;
+  current:boolean;
+  latestSessionAt:string|null;
+};
+
+export type RecoveryRequestReceipt = {
+  accepted:true;
+  requestId:string;
+  message:string;
+};
+
+export type AdminRecoveryRequest = {
+  requestId:string;
+  userId:string;
+  username:string;
+  displayName:string;
+  createdAt:string;
+  expiresAt:string;
+};
+
 export type Room = {
   id: string;
   slug: string;
@@ -389,6 +414,38 @@ export class ApiClient {
     return this.request<void>('/auth/logout', { method: 'POST' });
   }
 
+  requestPasswordRecovery(login:string){
+    return this.request<RecoveryRequestReceipt>('/auth/recovery/request',{
+      method:'POST',body:JSON.stringify({login})
+    });
+  }
+
+  confirmPasswordRecovery(input:{
+    requestId:string;recoveryCode:string;newPassword:string;deviceId:string;platform:string;
+    sessionMode?:'cookie'|'bearer';
+  }){
+    const {sessionMode,...body}=input;
+    return this.request<AuthSession>('/auth/recovery/confirm',{
+      method:'POST',
+      ...(sessionMode==='cookie'?{headers:{'X-3AKSA-Session-Mode':'cookie'}}:{}),
+      body:JSON.stringify(body)
+    });
+  }
+
+  devices(){
+    return this.request<{devices:AuthDevice[]}>('/auth/devices');
+  }
+
+  revokeDeviceSessions(installationId:string){
+    return this.request<{revoked:number}>(`/auth/devices/${encodeURIComponent(installationId)}/sessions`,{
+      method:'DELETE'
+    });
+  }
+
+  revokeOtherSessions(){
+    return this.request<{revoked:number}>('/auth/sessions/revoke-others',{method:'POST'});
+  }
+
   rooms(params: {
     search?: string; genderPolicy?: Room['genderPolicy']; favoritesOnly?: boolean; sort?: 'alphabetical'|'newest';
   } = {}) {
@@ -684,6 +741,28 @@ export class ApiClient {
     return this.request<{ overview: AdminOverview }>('/admin/overview', {
       headers: { 'X-Admin-Mfa-Code': mfaCode }
     });
+  }
+
+  adminRecoveryRequests(mfaCode:string,limit=100){
+    return this.request<{requests:AdminRecoveryRequest[]}>(withQuery('/admin/recovery',{limit}),{
+      headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
+  }
+
+  adminApproveRecovery(mfaCode:string,requestId:string){
+    return this.request<{recovery:{
+      requestId:string;userId:string;username:string;recoveryCode:string;expiresAt:string;
+    }}>(`/admin/recovery/${encodeURIComponent(requestId)}/approve`,{
+      method:'POST',headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
+  }
+
+  adminRejectRecovery(mfaCode:string,requestId:string){
+    return this.request<{recovery:{requestId:string;userId:string;rejected:true}}>(
+      `/admin/recovery/${encodeURIComponent(requestId)}/reject`,{
+        method:'POST',headers:{'X-Admin-Mfa-Code':mfaCode}
+      }
+    );
   }
 
   adminUsers(mfaCode: string, params: { search?: string; status?: AdminUserSummary['status']; limit?: number } = {}) {
