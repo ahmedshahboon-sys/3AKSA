@@ -55,6 +55,8 @@ must(deploy,'docker compose -f "${COMPOSE}" --profile ops run --rm migrate','mig
 must(deploy,'--profile build run --rm web-build','subpath web build');
 must(compose,'set -eu','fail-fast Web/PWA build');
 must(compose,'test -f apps/web/dist/index.html','Web/PWA dist verification');
+must(compose,'VITE_API_BASE_URL: /3aksa/api','same-origin Web API');
+mustNot(compose,'VITE_SOCKET_URL: https://marbo3a.ly','hardcoded Web socket origin');
 must(deploy,"CURRENT_VERSION=\"$(git rev-parse --short=12 HEAD)\"",'deployment version refresh');
 
 must(productionSecurity,"API_BIND_MODE==='loopback'",'explicit bind policy');

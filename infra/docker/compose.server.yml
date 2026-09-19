@@ -63,8 +63,7 @@ services:
       HOME: /tmp
       VITE_PUBLIC_BASE_PATH: /3aksa/
       VITE_PUBLIC_APP_URL: https://marbo3a.ly/3aksa
-      VITE_API_BASE_URL: https://marbo3a.ly/3aksa/api
-      VITE_SOCKET_URL: https://marbo3a.ly
+      VITE_API_BASE_URL: /3aksa/api
       VITE_SOCKET_PATH: /3aksa/socket.io
     volumes:
       - /var/www/3aksa/3aksa:/web-dist
