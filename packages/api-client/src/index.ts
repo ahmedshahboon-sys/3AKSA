@@ -250,6 +250,22 @@ export type AndroidRelease = {
   downloadPath: string;
 };
 
+export type AdminAndroidRelease = {
+  id:string;
+  channel:'stable'|'beta';
+  versionName:string;
+  versionCode:number;
+  minSupportedVersionCode:number;
+  fileName:string;
+  fileBytes:number;
+  sha256:string;
+  notes:string|null;
+  status:'draft'|'published'|'retired';
+  publishedAt:string|null;
+  createdAt:string;
+  updatedAt:string;
+};
+
 export type AndroidReleaseCheck = {
   release: AndroidRelease | null;
   updateAvailable: boolean;
@@ -908,6 +924,41 @@ export class ApiClient {
     return this.request<AndroidReleaseCheck>(
       withQuery('/app/releases/android/latest', { currentVersionCode, channel })
     );
+  }
+
+  adminAndroidReleases(mfaCode:string){
+    return this.request<{releases:AdminAndroidRelease[]}>('/admin/releases/android',{
+      headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
+  }
+
+  adminUploadAndroidRelease(mfaCode:string,input:{
+    base64:string;fileName:string;versionName:string;versionCode:number;minSupportedVersionCode:number;
+    channel:'stable'|'beta';notes?:string|null;
+  }){
+    return this.request<{release:AdminAndroidRelease}>('/admin/releases/android',{
+      method:'POST',headers:{'X-Admin-Mfa-Code':mfaCode},body:JSON.stringify(input)
+    });
+  }
+
+  adminUpdateAndroidRelease(mfaCode:string,releaseId:string,patch:{
+    minSupportedVersionCode?:number;notes?:string|null;
+  }){
+    return this.request<{release:AdminAndroidRelease}>(`/admin/releases/android/${encodeURIComponent(releaseId)}`,{
+      method:'PATCH',headers:{'X-Admin-Mfa-Code':mfaCode},body:JSON.stringify(patch)
+    });
+  }
+
+  adminPublishAndroidRelease(mfaCode:string,releaseId:string){
+    return this.request<{release:AdminAndroidRelease}>(`/admin/releases/android/${encodeURIComponent(releaseId)}/publish`,{
+      method:'POST',headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
+  }
+
+  adminRetireAndroidRelease(mfaCode:string,releaseId:string){
+    return this.request<{release:AdminAndroidRelease}>(`/admin/releases/android/${encodeURIComponent(releaseId)}/retire`,{
+      method:'POST',headers:{'X-Admin-Mfa-Code':mfaCode}
+    });
   }
 
   adminMe() {
