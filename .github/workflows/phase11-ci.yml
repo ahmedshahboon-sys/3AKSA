@@ -66,8 +66,7 @@ jobs:
             --network none \
             -e VITE_PUBLIC_BASE_PATH=/3aksa/ \
             -e VITE_PUBLIC_APP_URL=https://marbo3a.ly/3aksa \
-            -e VITE_API_BASE_URL=https://marbo3a.ly/3aksa/api \
-            -e VITE_SOCKET_URL=https://marbo3a.ly \
+            -e VITE_API_BASE_URL=/3aksa/api \
             -e VITE_SOCKET_PATH=/3aksa/socket.io \
             3aksa-server:ci \
             sh -lc "set -eu; pnpm --filter @3aksa/web build; test -f apps/web/dist/index.html"
