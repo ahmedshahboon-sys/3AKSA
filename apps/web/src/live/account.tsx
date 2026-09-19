@@ -1,13 +1,14 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import type { StoreItem, WalletHistoryItem } from '@3aksa/api-client';
-import { api } from '../runtime';
+import type { AndroidRelease, StoreItem, WalletHistoryItem } from '@3aksa/api-client';
+import { api, resolveApiUrl } from '../runtime';
 import { useSession } from '../session';
 import { readableError, useApiResource } from '../useApiResource';
 import { Avatar, ScreenHeader, SectionTitle } from '../ui';
 import { Icon } from '../icons';
 import { type AppTheme, useAppTheme } from '../theme';
 import { LiveState, genderToUi, relativeTime } from './common';
+import { isNativeAndroid, nativeAppInfo, openExternalUrl } from '../native';
 
 function parseLyd(value:string){
   const text=value.trim();
@@ -39,8 +40,26 @@ export function LiveAccountScreen(){
   const [busy,setBusy]=useState(false);
   const resource=useApiResource(async()=>{
     const [profile,wallet,equipment]=await Promise.all([api.profileMe(),api.wallet(),api.equipment()]);
-    return {profile:profile.profile,wallet,equipment:equipment.equipment};
+    let androidUpdate:null|{release:AndroidRelease;required:boolean;versionName:string;versionCode:number}=null;
+    if(isNativeAndroid()){
+      try{
+        const info=await nativeAppInfo();
+        if(info){
+          const check=await api.androidRelease(info.versionCode);
+          if(check.updateAvailable&&check.release){
+            androidUpdate={release:check.release,required:check.required,versionName:info.versionName,versionCode:info.versionCode};
+          }
+        }
+      }catch{/* update checks must not block the account screen */}
+    }
+    return {profile:profile.profile,wallet,equipment:equipment.equipment,androidUpdate};
   },[]);
+
+  async function downloadAndroidUpdate(){
+    const release=resource.data?.androidUpdate?.release;
+    if(!release)return;
+    await openExternalUrl(resolveApiUrl(release.downloadPath));
+  }
 
   async function saveProfile(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setBusy(true);setError('');
@@ -63,6 +82,7 @@ export function LiveAccountScreen(){
 
       <section className="balance-card"><div><span>الرصيد</span><strong>{resource.data?.wallet.balanceLyd??'0.000'} <small>د.ل</small></strong></div><div className="balance-actions"><Link className="link-reset" to="/wallet"><Icon name="wallet" size={18}/> المحفظة</Link><Link className="link-reset" to="/store"><Icon name="store" size={18}/> المتجر</Link></div></section>
       <section className="account-shortcuts"><Link to="/notifications" className="link-reset"><Icon name="bell"/><span>الإشعارات</span></Link><Link to="/store" className="link-reset"><Icon name="store"/><span>مشترياتي</span></Link><Link to="/account/prayer" className="link-reset"><span>🌙</span><span>الصلاة</span></Link></section>
+      {resource.data?.androidUpdate?<section className="notification-settings"><div><b>{resource.data.androidUpdate.required?'تحديث عكسة مطلوب':'في تحديث جديد لعكسة'}</b><small>الإصدار {resource.data.androidUpdate.release.versionName} متاح بدل {resource.data.androidUpdate.versionName}</small>{resource.data.androidUpdate.release.notes?<small>{resource.data.androidUpdate.release.notes}</small>:null}</div><button className="primary-button small" type="button" onClick={()=>void downloadAndroidUpdate()}>تحديث التطبيق</button></section>:null}
 
       <SectionTitle title="الثيم"/>
       <div className="theme-grid">{themeOptions.map((option)=><button className={theme===option.value?'theme-option active':'theme-option'} key={option.value} onClick={()=>setTheme(option.value)} type="button">{option.label}</button>)}</div>

@@ -55,6 +55,11 @@ const apiBase=import.meta.env.VITE_API_BASE_URL || defaultApiBase;
 const socketUrl=import.meta.env.VITE_SOCKET_URL || window.location.origin;
 const socketPath=import.meta.env.VITE_SOCKET_PATH || `${basePath}socket.io`;
 
+export function resolveApiUrl(path:string){
+  const base=new URL(apiBase,window.location.origin);
+  return new URL(path,base.origin).toString();
+}
+
 export const api=new ApiClient({
   baseUrl:apiBase,
   getAccessToken

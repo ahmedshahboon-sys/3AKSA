@@ -155,6 +155,26 @@ export type AppNotification = {
   expiresAt: string;
 };
 
+export type AndroidRelease = {
+  id: string;
+  channel: 'stable' | 'beta';
+  versionName: string;
+  versionCode: number;
+  minSupportedVersionCode: number;
+  fileName: string;
+  fileBytes: number;
+  sha256: string;
+  notes: string | null;
+  publishedAt: string;
+  downloadPath: string;
+};
+
+export type AndroidReleaseCheck = {
+  release: AndroidRelease | null;
+  updateAvailable: boolean;
+  required: boolean;
+};
+
 export type NotificationPreferences = {
   pushEnabled: boolean;
   categories: {
@@ -567,5 +587,11 @@ export class ApiClient {
       method: 'POST',
       body: JSON.stringify({ platform: 'android', installationId, token })
     });
+  }
+
+  androidRelease(currentVersionCode: number, channel: 'stable'|'beta' = 'stable') {
+    return this.request<AndroidReleaseCheck>(
+      withQuery('/app/releases/android/latest', { currentVersionCode, channel })
+    );
   }
 }

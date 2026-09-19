@@ -11,6 +11,7 @@ function targetFor(notification:AppNotification){
   if(conversationId)return '/private/'+conversationId;
   if(notification.type==='message_request')return '/private';
   if(['wallet_topup','wallet_transfer','purchase','gift_received'].includes(notification.type))return '/wallet';
+  if(notification.type==='app_update')return '/account';
   return '/notifications';
 }
 
