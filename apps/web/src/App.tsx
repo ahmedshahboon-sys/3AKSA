@@ -16,6 +16,8 @@ import { LiveNotificationsScreen } from './live/notifications';
 import { LivePrayerSettingsScreen } from './live/prayer';
 import { LiveRealtimeEffects } from './live/realtimeEffects';
 import { PwaLifecycle } from './live/pwaLifecycle';
+import { PublicInstallScreen } from './live/install';
+import { LiveReleaseAdminScreen } from './live/releaseAdmin';
 import { LiveAdminScreen } from './live/admin';
 import { LiveAdminStoreScreen } from './live/storeAdmin';
 import { LiveFriendsScreen,LiveProfileScreen } from './live/social';
@@ -66,6 +68,7 @@ function AppShell() {
         <Route path="/notifications" element={<LiveNotificationsScreen />} />
         <Route path="/admin" element={<LiveAdminScreen />} />
         <Route path="/admin/store" element={<LiveAdminStoreScreen />} />
+        <Route path="/admin/releases" element={<LiveReleaseAdminScreen />} />
         <Route path="/admin/tv" element={<LiveTvAdminScreen />} />
         <Route path="/offline" element={<OfflineScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -79,6 +82,8 @@ function AppShell() {
 
 export function App() {
   const { status } = useSession();
+  const location = useLocation();
+  if (location.pathname === '/download') return <PublicInstallScreen />;
   if (status === 'loading') {
     return <main className="auth-page"><div className="boot-loader" role="status">جاري فتح عكسة...</div></main>;
   }
