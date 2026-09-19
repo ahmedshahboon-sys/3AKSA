@@ -24,7 +24,7 @@ exclude_data=(
   telemetry_events
   user_locations
   auth_sessions
-  auth_recovery_requests
+  password_recovery_requests
   admin_mfa_pending
   push_subscriptions
 )
