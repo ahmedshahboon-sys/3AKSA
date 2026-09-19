@@ -23,6 +23,8 @@ test('Group 7 privacy preferences are persisted and enforced',()=>{
   assert.ok(migration.includes("nearby_consent_at"));
   assert.ok(social.includes("NEARBY_CONSENT_REQUIRED"));
   assert.ok(social.includes("target.profile_visibility==='friends'"));
+  assert.ok(social.includes("profile-view-ip"));
+  assert.ok(social.includes("profile-view"));
   assert.ok(nearby.includes("nearbyConsent:true"));
 });
 
@@ -77,5 +79,6 @@ test('Group 7 admin can control flags and review aggregated telemetry',()=>{
   assert.ok(routes.includes('feature_flag_updated'));
   assert.ok(routes.includes('requireAdminMfa'));
   assert.ok(telemetry.includes('requireAdminMfa'));
+  assert.ok(telemetry.includes('admin-telemetry-route-ip'));
   assert.ok(telemetry.includes('GROUP BY event_type,app_version,platform'));
 });
