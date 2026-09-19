@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { ChatMessage, PrivateConversation } from '@3aksa/api-client';
+import type { ChatMessage, PrivateConversation, StoreItem } from '@3aksa/api-client';
 import { api, realtime } from '../runtime';
 import { useSession } from '../session';
 import { readableError, useApiResource } from '../useApiResource';
@@ -8,6 +8,13 @@ import { Avatar, ScreenHeader, V1GuardNote } from '../ui';
 import { Icon } from '../icons';
 import { LiveState, genderToUi, localTime, relativeTime } from './common';
 import { ProtectedVoicePlayer, VoiceRecorderButton } from './voice';
+
+function stickerTexts(items:Array<StoreItem & {acquiredAt:string}>){
+  return items.filter(item=>item.type==='sticker_pack').flatMap(item=>{
+    const stickers=Array.isArray(item.metadata?.stickers)?item.metadata!.stickers:[];
+    return stickers.filter((value):value is string=>typeof value==='string'&&value.length>0&&value.length<=64);
+  }).slice(0,32);
+}
 
 function upsert(list:ChatMessage[],message:ChatMessage){
   const found=list.findIndex((item)=>item.id===message.id);
@@ -70,13 +77,19 @@ export function LiveConversationScreen(){
   const [messages,setMessages]=useState<ChatMessage[]>([]);
   const [composer,setComposer]=useState('');
   const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
   const [sending,setSending]=useState(false);
   const resource=useApiResource(async()=>{
-    const conversations=await api.privateConversations();
+    const [conversations,history,inventory,gifts,reactions]=await Promise.all([
+      api.privateConversations(),api.privateMessages(conversationId,{limit:100}),
+      api.inventory(),api.storeItems('gift'),api.storeItems('reaction')
+    ]);
     const conversation=conversations.conversations.find((item)=>item.id===conversationId);
     if(!conversation)throw new Error('CONVERSATION_NOT_FOUND');
-    const history=await api.privateMessages(conversationId,{limit:100});
-    return {conversation,messages:history.messages};
+    return {
+      conversation,messages:history.messages,stickers:stickerTexts(inventory.items),
+      gifts:gifts.items,reactions:reactions.items
+    };
   },[conversationId]);
 
   useEffect(()=>{if(resource.data)setMessages([...resource.data.messages].reverse());},[resource.data]);
@@ -112,6 +125,22 @@ export function LiveConversationScreen(){
     if(!ack.ok){setError(ack.error??'REACTION_UPDATE_FAILED');return;}
     setMessages((items)=>items.map((item)=>item.id===message.id?{...item,reactions:{like:{count:ack.like?.count??item.reactions?.like.count??0,reacted:!active}}}:item));
   }
+  async function sendGiftItem(item:StoreItem){
+    const peer=resource.data?.conversation.peer;if(!peer)return;
+    setError('');setNotice('');
+    try{
+      await api.sendGift(peer.username,item.code,crypto.randomUUID(),{type:'private_message',id:conversationId});
+      setNotice(`تم إرسال ${item.name} ✅`);
+    }catch(err){setError(readableError(err));}
+  }
+  async function paidReaction(message:ChatMessage,item:StoreItem){
+    const recipient=message.sender?.username;if(!recipient||message.sender?.id===user?.id)return;
+    setError('');setNotice('');
+    try{
+      await api.sendGift(recipient,item.code,crypto.randomUUID(),{type:'private_message',id:message.id});
+      setNotice(`تم إرسال التفاعل المدفوع ${item.name} ✅`);
+    }catch(err){setError(readableError(err));}
+  }
 
   async function blockPeer(){
     const peer=resource.data?.conversation.peer;
@@ -130,6 +159,11 @@ export function LiveConversationScreen(){
     <main className="page-shell chat-screen">
       <ScreenHeader title={chat.peer.displayName} eyebrow={'@'+chat.peer.username} backTo="/private" trailing={<div className="header-actions"><Link className="secondary-button link-reset" to={'/profiles/'+encodeURIComponent(chat.peer.username)}>الملف</Link><Link className="secondary-button link-reset" to={'/profiles/'+encodeURIComponent(chat.peer.username)+'?report=1'}>بلاغ</Link><button className="secondary-button" type="button" onClick={()=>void blockPeer()}>حظر</button></div>} />
       {error?<div className="live-error">{error}</div>:null}
+      {notice?<div className="success-note">{notice}</div>:null}
+      {resource.data.gifts.length?<section className="store-inline-actions">
+        <b>هدايا</b><div className="admin-actions">{resource.data.gifts.map(item=><button className="secondary-button" key={item.id} type="button" onClick={()=>void sendGiftItem(item)}>{item.assetKey?<img className="inline-store-icon" src={api.storeAssetUrl(item.code)} alt=""/>:'🌹'} {item.name} · {(item.priceMilli/1000).toFixed(3)} LYD</button>)}</div>
+        {resource.data.gifts.some(item=>item.code==='rose')?<small>Rose: 1.000 LYD · 0.500 LYD recipient · 0.500 LYD platform</small>:null}
+      </section>:null}
       <section className="room-chat-feed private-feed">
         {messages.length?messages.map((message)=>{
           const mine=message.sender?.id===user?.id;
@@ -137,11 +171,12 @@ export function LiveConversationScreen(){
             {!mine?<Avatar name={message.sender?.displayName||chat.peer.displayName} gender={genderToUi(message.sender?.gender)} cosmetics={message.sender?.cosmetics??chat.peer.cosmetics}/>:null}
             <div><div className="message-author"><b>{mine?'أنت':message.sender?.displayName||chat.peer.displayName}</b><time>{localTime(message.createdAt)}</time></div>
               {message.type==='voice'?<ProtectedVoicePlayer load={()=>api.blob('/private/conversations/'+encodeURIComponent(conversationId)+'/messages/'+encodeURIComponent(message.id)+'/voice')}/>:<div className="message-bubble">{message.text||''}</div>}
-              <div className="message-actions"><button className={message.reactions?.like.reacted?'active':''} type="button" onClick={()=>void like(message)}>❤️ {message.reactions?.like.count??0}</button></div>
+              <div className="message-actions"><button className={message.reactions?.like.reacted?'active':''} type="button" onClick={()=>void like(message)}>❤️ {message.reactions?.like.count??0}</button>{!mine?resource.data.reactions.slice(0,3).map(item=><button type="button" key={item.id} onClick={()=>void paidReaction(message,item)}>{item.name} · {(item.priceMilli/1000).toFixed(3)}</button>):null}</div>
             </div>
           </article>;
         }):<div className="empty-state-inline">ابدأ المحادثة 👋</div>}
       </section>
+      {resource.data.stickers.length?<div className="sticker-picker" aria-label="الملصقات">{resource.data.stickers.map((sticker,index)=><button type="button" key={sticker+index} onClick={()=>setComposer(current=>(current?current+' ':'')+sticker)}>{sticker}</button>)}</div>:null}
       <form className="chat-composer live-composer" onSubmit={send}><input value={composer} onChange={(e)=>setComposer(e.target.value)} maxLength={2000} placeholder="اكتب رسالة..." aria-label="نص الرسالة"/><VoiceRecorderButton disabled={sending} onReady={sendVoice}/><button className="composer-button send" disabled={sending||!composer.trim()} type="submit"><Icon name="send"/></button></form>
       <V1GuardNote/>
     </main>
