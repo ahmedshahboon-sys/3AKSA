@@ -51,7 +51,7 @@ Status: **BLOCKED_EXTERNAL** (source/CI baseline complete; production runtime ch
 - [x] Confirm package manager and principal app packages.
 - [x] Confirm PWA manifest exists.
 - [x] Confirm CI/CodeQL gates on PR #20: Phase 1–11 applicable workflows, CodeQL and Android Release Candidate all passed.
-- [x] Confirm migration inventory through `0019_owner_bootstrap.sql` (19 migrations in Git; production-applied state remains external).
+- [x] Confirm migration inventory through `0021_public_cosmetics_view.sql` (21 migrations in Git; production-applied state remains external).
 - [x] Confirm Android release-candidate versionName `1.0.1`, versionCode `2`.
 - [ ] Confirm Production APP_VERSION, /health, /ready, API, Socket.IO, service worker and Nginx subpath.
 - [ ] Classify all launch-critical areas as Implemented / Partial / Missing / Broken.
@@ -116,7 +116,7 @@ Closure:
 - Production/two-account behavior verification remains external.
 
 ### GROUP 4 — ROOMS + ROOM ADMIN + TV
-Status: **IN PROGRESS**
+Status: **BLOCKED_EXTERNAL** (code/CI complete; production/two-account behavior remains external)
 
 Changes:
 - Added manager-only room management snapshot with current moderators, active bans and active private-room invites.
@@ -129,12 +129,13 @@ Changes:
 - Existing TV backend SSRF/DNS/private-address guards and playlist size/channel limits retained.
 - Room TV owner/moderator controls remain viewer read-only.
 
-Pending:
-- Group 4 regression/integration CI and CodeQL.
+Closure:
+- PR #24 merged to develop at `ef44fd88bd638976824e9a8958ac8768957f27df`.
+- Phase 1–11 applicable CI, CodeQL and Android Release Candidate: PASS.
 - Production/two-account behavior verification remains external.
 
 ### GROUP 5 — WALLET / STORE / GIFTS / VISUAL ITEMS
-Status: **IN PROGRESS**
+Status: **BLOCKED_EXTERNAL** (code/CI complete; production/two-account economy behavior remains external)
 
 Changes:
 - Kept existing atomic/idempotent wallet, purchase and gift ledger; rose remains exactly 1.000 LYD with 0.500 LYD recipient and 0.500 LYD platform.
@@ -148,12 +149,29 @@ Changes:
 - Paid reaction Store items can be sent against Room/Private messages through the existing retry-safe gift ledger context.
 - Added `tests/group5-economy-store-visuals.test.mjs`.
 
-Pending:
-- Full typecheck/build/integration/CodeQL on Group 5 PR.
+Closure:
+- PR #25 merged to develop at `79d229d38ef2d6cbca588cff37e9b936410610eb`.
+- Phase 1–11 applicable CI, CodeQL and Android Release Candidate: PASS after rate-limit review closure.
 - Production migration/asset storage/two-account economy behavior remains external.
 
 ### GROUP 6 — PWA / APK / PUSH / DISTRIBUTION
-Status: **NOT STARTED**
+Status: **IN PROGRESS**
+
+Changes:
+- Added server-side APK storage validation, 64MB limit, APK/ZIP manifest check, random storage key and server-computed SHA-256.
+- Added MFA-protected `release_admin/super_admin` Release Management API/UI: upload draft, edit minimum version, publish and retire with audit + user/IP rate limits.
+- Added public `/download` page that works before/after login and shows Stable/Beta version, size, SHA-256, release notes and APK download.
+- Added PWA install prompt support plus iPhone Share → Add to Home Screen instructions.
+- Explicit PWA manifest `any` and `maskable` icon purposes.
+- Trusted Release now verifies source contracts, signs APK with external GitHub secrets, verifies certificate and retains APK + SHA256 + certificate proof artifacts.
+- Existing Web Push VAPID and Android FCM providers remain optional; missing credentials do not break Core.
+- Added `tests/group6-distribution.test.mjs`.
+
+Pending:
+- Full CI/CodeQL/Android RC on Group 6 PR.
+- Official Android signing secrets availability is external.
+- Real VAPID/FCM credentials are external and optional for Core.
+- Production install/download behavior remains external.
 
 ### GROUP 7 — PRIVACY / SETTINGS / I18N / TELEMETRY / FEATURE FLAGS
 Status: **NOT STARTED**
