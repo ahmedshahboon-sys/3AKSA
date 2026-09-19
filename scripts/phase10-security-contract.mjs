@@ -35,7 +35,7 @@ must(cookie,'Path=','session cookie path');
 must(httpSecurity,'CSRF_ORIGIN_REJECTED','CSRF protection');
 must(httpSecurity,'Strict-Transport-Security','production HSTS');
 must(httpSecurity,'Content-Security-Policy','API CSP');
-must(app,"trustProxy: ['127.0.0.1','::1']",'loopback-only proxy trust');
+must(app,'env.TRUSTED_PROXY_CIDRS','explicit trusted proxy policy');
 must(socket,'UNAUTHORIZED_ORIGIN','cookie WebSocket origin protection');
 
 must(nativeTemplate,'AndroidKeyStore','Android Keystore');

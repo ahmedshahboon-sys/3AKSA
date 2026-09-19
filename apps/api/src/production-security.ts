@@ -14,8 +14,17 @@ export function productionSecurityErrors(env:ServerEnv){
   if(env.NODE_ENV!=='production')return [] as string[];
   const errors:string[]=[];
 
-  if(env.API_HOST!=='127.0.0.1'&&env.API_HOST!=='::1'){
-    errors.push('API_HOST must stay on loopback behind Nginx');
+  if(env.API_BIND_MODE==='loopback'){
+    if(env.API_HOST!=='127.0.0.1'&&env.API_HOST!=='::1'){
+      errors.push('API_HOST must stay on loopback when API_BIND_MODE=loopback');
+    }
+  }else if(env.API_HOST!=='0.0.0.0'&&env.API_HOST!=='::'){
+    errors.push('API_HOST must bind the container interface when API_BIND_MODE=container');
+  }
+
+  const trustedProxies=env.TRUSTED_PROXY_CIDRS.split(',').map((value)=>value.trim()).filter(Boolean);
+  if(!trustedProxies.includes('127.0.0.1')&&!trustedProxies.includes('::1')){
+    errors.push('TRUSTED_PROXY_CIDRS must retain a loopback proxy entry');
   }
   if(env.STORAGE_DRIVER!=='local'){
     errors.push('Only local storage is implemented in this release');

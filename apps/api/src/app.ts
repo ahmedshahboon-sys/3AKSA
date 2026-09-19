@@ -31,7 +31,7 @@ export async function buildApp() {
     logger: {
       level: env.NODE_ENV === 'production' ? 'info' : 'debug'
     },
-    trustProxy: ['127.0.0.1','::1'],
+    trustProxy: env.TRUSTED_PROXY_CIDRS.split(',').map((value)=>value.trim()).filter(Boolean),
     bodyLimit: 64 * 1024
   });
 

@@ -1,0 +1,14 @@
+.git
+.gitignore
+node_modules
+**/node_modules
+**/dist
+apps/mobile/android
+apps/mobile/ios
+.env
+.env.*
+!.env.example
+.data
+*.log
+coverage
+.DS_Store
