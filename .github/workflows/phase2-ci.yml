@@ -105,6 +105,7 @@ jobs:
           set -euo pipefail
           tests=(
             tests/auth.integration.test.ts
+            tests/auth-recovery-devices.integration.test.ts
             tests/nearby.integration.test.ts
             tests/private.integration.test.ts
             tests/rate-limit.integration.test.ts
