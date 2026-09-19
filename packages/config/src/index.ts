@@ -23,6 +23,8 @@ export const serverEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_VERSION: z.string().default('0.0.0-dev'),
   API_HOST: z.string().default('127.0.0.1'),
+  API_BIND_MODE: z.enum(['loopback','container']).default('loopback'),
+  TRUSTED_PROXY_CIDRS: z.string().trim().min(1).default('127.0.0.1,::1'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3101),
   API_BASE_PATH: z.string().default('/3aksa/api'),
   SOCKET_PATH: z.string().default('/3aksa/socket.io'),
