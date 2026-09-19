@@ -359,7 +359,7 @@ export class ApiClient {
 
   register(input: {
     username: string; displayName: string; phone: string; gender: Gender;
-    password: string; deviceId: string; platform: string; sessionMode?: 'cookie'|'bearer';
+    password: string; ownerClaimCode?: string; deviceId: string; platform: string; sessionMode?: 'cookie'|'bearer';
   }) {
     const {sessionMode,...body}=input;
     return this.request<AuthSession>('/auth/register', {
