@@ -91,7 +91,7 @@ export function App() {
   if(location.pathname==='/terms')return <PublicLegalScreen kind="terms"/>;
   if(location.pathname==='/about')return <PublicLegalScreen kind="about"/>;
   if(location.pathname==='/support')return <PublicLegalScreen kind="support"/>;
-  if(status==='loading'){
+  if (status === 'loading') {
     return <main className="auth-page"><div className="boot-loader" role="status">{t('opening')}</div></main>;
   }
   if (status === 'anonymous') return <AuthScreen />;
