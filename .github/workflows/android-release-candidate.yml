@@ -1,0 +1,124 @@
+name: Android Release Candidate
+
+on:
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-candidate:
+    name: android-release-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    env:
+      ANDROID_APP_ID: ly.threeaksa.app
+      ANDROID_VERSION_NAME: "1.0.0"
+      ANDROID_VERSION_CODE: "1"
+      VITE_PUBLIC_BASE_PATH: /
+      VITE_PUBLIC_APP_URL: https://marbo3a.ly/3aksa
+      VITE_API_BASE_URL: https://marbo3a.ly/3aksa/api
+      VITE_SOCKET_URL: https://marbo3a.ly
+      VITE_SOCKET_PATH: /3aksa/socket.io
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.4.2 --activate
+
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify project
+        run: |
+          pnpm typecheck
+          node scripts/browser-fetch-contract.mjs
+          node scripts/check-visual-assets.mjs || bash scripts/prepare-visual-assets.sh
+
+      - name: Build Android web assets
+        run: pnpm --filter @3aksa/web build
+
+      - name: Generate hardened Android project
+        working-directory: apps/mobile
+        run: |
+          pnpm exec cap add android
+          pnpm exec cap sync android
+          node scripts/install-secure-store.mjs
+          node scripts/install-launcher-assets.mjs
+          node scripts/set-android-version.mjs
+
+      - name: Verify generated launcher identity
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          EXPECTED=94791769c2939a870bfd8018af21d2a06473dc5a15be08913269e78da6511d88
+          for icon in android/app/src/main/res/mipmap-*/ic_launcher.png android/app/src/main/res/mipmap-*/ic_launcher_round.png; do
+            [ -f "$icon" ] || continue
+            test "$(sha256sum "$icon" | awk '{print $1}')" = "$EXPECTED"
+          done
+
+      - name: Build unsigned release APK
+        working-directory: apps/mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Validate release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          test -f "$APK"
+          BUILD_TOOLS="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          AAPT="$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -q "package: name='ly.threeaksa.app'" /tmp/badging.txt
+          grep -q "versionCode='1'" /tmp/badging.txt
+          grep -q "versionName='1.0.0'" /tmp/badging.txt
+          if "$AAPT" dump xmltree "$APK" AndroidManifest.xml | grep -q 'android:debuggable(0x0101000f)=(type 0x12)0xffffffff'; then
+            echo "::error::Release APK is debuggable"
+            exit 1
+          fi
+
+      - name: Package signing toolkit and unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          BUILD_TOOLS="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          mkdir -p release-candidate/build-tools/lib
+          cp "$APK" release-candidate/3aksa-1.0.0-1-unsigned.apk
+          cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/zipalign" release-candidate/build-tools/
+          cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" release-candidate/build-tools/
+          cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/lib/apksigner.jar" release-candidate/build-tools/lib/
+          chmod +x release-candidate/build-tools/zipalign release-candidate/build-tools/apksigner
+          printf '%s\n' "$BUILD_TOOLS" > release-candidate/build-tools-version.txt
+          sha256sum release-candidate/3aksa-1.0.0-1-unsigned.apk > release-candidate/3aksa-1.0.0-1-unsigned.apk.sha256
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3aksa-android-release-candidate-1.0.0
+          path: release-candidate
+          if-no-files-found: error
+          retention-days: 14
