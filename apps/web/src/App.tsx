@@ -86,7 +86,7 @@ function AppShell() {
 export function App() {
   const { status } = useSession();
   const location = useLocation();
-  if(location.pathname==='/download')return <PublicInstallScreen/>;
+  if (location.pathname === '/download') return <PublicInstallScreen />;
   if(location.pathname==='/privacy')return <PublicLegalScreen kind="privacy"/>;
   if(location.pathname==='/terms')return <PublicLegalScreen kind="terms"/>;
   if(location.pathname==='/about')return <PublicLegalScreen kind="about"/>;
