@@ -4,6 +4,7 @@ export type RealtimeOptions = {
   url: string;
   path: string;
   getAccessToken: () => string | null | undefined;
+  allowCookieAuth?: boolean;
 };
 
 export type AckPayload = Record<string, unknown> & {
@@ -55,10 +56,10 @@ export class RealtimeClient {
 
   connect() {
     const token = this.options.getAccessToken();
-    if (!token) return null;
+    if (!token && !this.options.allowCookieAuth) return null;
 
     if (this.socket) {
-      this.socket.auth = { accessToken: token };
+      this.socket.auth = token ? { accessToken: token } : {};
       if (!this.socket.connected) this.socket.connect();
       return this.socket;
     }
@@ -67,7 +68,8 @@ export class RealtimeClient {
       path: this.options.path,
       autoConnect: true,
       transports: ['websocket', 'polling'],
-      auth: { accessToken: token },
+      withCredentials: true,
+      auth: token ? { accessToken: token } : {},
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 500,
@@ -85,10 +87,10 @@ export class RealtimeClient {
   refreshAuth() {
     const token = this.options.getAccessToken();
     if (!this.socket) return this.connect();
-    this.socket.auth = { accessToken: token ?? '' };
+    this.socket.auth = token ? { accessToken: token } : {};
     if (this.socket.connected) {
       this.socket.disconnect().connect();
-    } else if (token) {
+    } else if (token || this.options.allowCookieAuth) {
       this.socket.connect();
     }
     return this.socket;

@@ -3,6 +3,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../../db.js';
 import { consumeRateLimit } from '../../rate-limit.js';
+import { clearWebSessionCookie, requestWantsCookieSession, setWebSessionCookie } from './cookie.js';
+import { sessionTokenFromRequest } from './session.js';
 import {
   createSessionToken,
   hashPassword,
@@ -57,13 +59,6 @@ function userDto(user: UserRow) {
     status: user.status,
     createdAt: user.created_at
   };
-}
-
-function bearerToken(request: FastifyRequest): string | null {
-  const authorization = request.headers.authorization;
-  if (!authorization) return null;
-  const [scheme, token] = authorization.split(' ');
-  return scheme?.toLowerCase() === 'bearer' && token ? token.trim() : null;
 }
 
 function rateLimited(reply: FastifyReply, retryAfterSeconds: number) {
@@ -197,9 +192,11 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
         return { user: inserted.rows[0]!, session };
       });
 
+      const cookieSession=requestWantsCookieSession(request);
+      if(cookieSession)setWebSessionCookie(reply,result.session.token,result.session.expiresAt);
       return reply.code(201).send({
         user: userDto(result.user),
-        accessToken: result.session.token,
+        accessToken: cookieSession ? null : result.session.token,
         expiresAt: result.session.expiresAt
       });
     } catch (error) {
@@ -267,11 +264,17 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
       return createSession(client, user.id, deviceId);
     });
 
-    return reply.send({ user: userDto(user), accessToken: session.token, expiresAt: session.expiresAt });
+    const cookieSession=requestWantsCookieSession(request);
+    if(cookieSession)setWebSessionCookie(reply,session.token,session.expiresAt);
+    return reply.send({
+      user:userDto(user),
+      accessToken:cookieSession ? null : session.token,
+      expiresAt:session.expiresAt
+    });
   });
 
   app.get(`${prefix}/me`, async (request, reply) => {
-    const token = bearerToken(request);
+    const token = sessionTokenFromRequest(request);
     if (!token) return unauthorized(reply);
 
     const result = await query<UserRow>(
@@ -298,12 +301,13 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
   });
 
   app.post(`${prefix}/logout`, async (request, reply) => {
-    const token = bearerToken(request);
+    const token = sessionTokenFromRequest(request);
     if (!token) return unauthorized(reply);
     await query(
       'UPDATE auth_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE token_hash = $1',
       [hashSessionToken(token)]
     );
+    clearWebSessionCookie(reply);
     return reply.code(204).send();
   });
 }

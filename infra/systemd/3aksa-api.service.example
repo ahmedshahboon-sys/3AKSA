@@ -1,0 +1,36 @@
+[Unit]
+Description=3AKSA API
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=3aksa
+Group=3aksa
+WorkingDirectory=/opt/3aksa/current
+EnvironmentFile=/etc/3aksa/3aksa.env
+ExecStart=/opt/3aksa/current/apps/api/node_modules/.bin/tsx /opt/3aksa/current/apps/api/src/server.ts
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+KillSignal=SIGTERM
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/3aksa
+
+[Install]
+WantedBy=multi-user.target

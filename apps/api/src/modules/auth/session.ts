@@ -1,6 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import { query } from '../../db.js';
 import { hashSessionToken } from './security.js';
+import { sessionCookieTokenFromHeader } from './cookie.js';
 
 export type AuthenticatedUser = {
   id: string;
@@ -15,6 +16,10 @@ export function bearerToken(request: FastifyRequest): string | null {
   if (!authorization) return null;
   const [scheme, token] = authorization.split(' ');
   return scheme?.toLowerCase() === 'bearer' && token ? token.trim() : null;
+}
+
+export function sessionTokenFromRequest(request: FastifyRequest): string | null {
+  return bearerToken(request) ?? sessionCookieTokenFromHeader(request.headers.cookie);
 }
 
 export async function authenticateToken(token: string): Promise<AuthenticatedUser | null> {
@@ -39,7 +44,7 @@ export async function touchSessionToken(token: string): Promise<void> {
 }
 
 export async function authenticateRequest(request: FastifyRequest): Promise<AuthenticatedUser | null> {
-  const token = bearerToken(request);
+  const token = sessionTokenFromRequest(request);
   if (!token) return null;
 
   const user = await authenticateToken(token);
