@@ -119,6 +119,7 @@ jobs:
           pnpm exec cap add android
           pnpm exec cap sync android
           node scripts/install-secure-store.mjs
+          node scripts/install-launcher-assets.mjs
           node scripts/set-android-version.mjs
 
       - name: Build unsigned release APK
