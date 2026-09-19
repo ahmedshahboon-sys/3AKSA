@@ -291,7 +291,7 @@ export class ApiClient {
   constructor(options: ApiClientOptions) {
     this.baseUrl = trimSlash(options.baseUrl);
     this.getAccessToken = options.getAccessToken ?? (() => null);
-    this.fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   private requestUrl(path:string){
