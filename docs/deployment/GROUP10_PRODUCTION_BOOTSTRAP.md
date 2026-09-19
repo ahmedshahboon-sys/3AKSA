@@ -32,6 +32,8 @@ The script creates isolated DB state/secrets if needed, builds the immutable ser
 
 Production secrets are stored under `/etc/3aksa/` and are never printed by the deployment script.
 
+Existing production environments are preserved: the deploy helper never rotates an existing session secret/password pepper/MFA key just to enable owner bootstrap. If active `ahmed` already exists, it does not reopen the claim path; if the stored owner username differs from `ahmed`, the helper fails closed instead of silently changing ownership.
+
 ## 3. Bootstrap owner account `ahmed`
 
 The first production env enables one-time owner bootstrap for username `ahmed`. The activation code is stored only on the server:
