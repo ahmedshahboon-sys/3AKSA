@@ -1,28 +1,41 @@
+import { lazy, Suspense } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Icon } from './icons';
 import { AuthScreen } from './auth';
 import { useSession } from './session';
-import { OfflineScreen } from './screens';
 import { LiveHomeScreen } from './live/home';
-import { LiveRoomsScreen, LiveRoomChatScreen } from './live/rooms';
-import { LiveRoomManageScreen } from './live/roomManage';
-import { LiveNearbyScreen } from './live/nearby';
-import { LivePrivateScreen, LiveConversationScreen, LiveNewConversationScreen } from './live/private';
-import { LiveAccountScreen, LiveWalletScreen, LiveStoreScreen } from './live/account';
-import { LiveDevicesScreen } from './live/devices';
-import { LiveTvScreen } from './live/tv';
-import { LiveTvAdminScreen } from './live/tvAdmin';
-import { LiveNotificationsScreen } from './live/notifications';
-import { LivePrayerSettingsScreen } from './live/prayer';
 import { LiveRealtimeEffects } from './live/realtimeEffects';
 import { PwaLifecycle } from './live/pwaLifecycle';
 import { PublicInstallScreen } from './live/install';
 import { PublicLegalScreen } from './live/legal';
 import { getLanguage,t } from './i18n';
-import { LiveReleaseAdminScreen } from './live/releaseAdmin';
-import { LiveAdminScreen } from './live/admin';
-import { LiveAdminStoreScreen } from './live/storeAdmin';
-import { LiveFriendsScreen,LiveProfileScreen } from './live/social';
+
+
+const LiveRoomsScreen=lazy(()=>import('./live/rooms').then(m=>({default:m.LiveRoomsScreen})));
+const LiveRoomChatScreen=lazy(()=>import('./live/rooms').then(m=>({default:m.LiveRoomChatScreen})));
+const LiveRoomManageScreen=lazy(()=>import('./live/roomManage').then(m=>({default:m.LiveRoomManageScreen})));
+const LiveNearbyScreen=lazy(()=>import('./live/nearby').then(m=>({default:m.LiveNearbyScreen})));
+const LivePrivateScreen=lazy(()=>import('./live/private').then(m=>({default:m.LivePrivateScreen})));
+const LiveConversationScreen=lazy(()=>import('./live/private').then(m=>({default:m.LiveConversationScreen})));
+const LiveNewConversationScreen=lazy(()=>import('./live/private').then(m=>({default:m.LiveNewConversationScreen})));
+const LiveAccountScreen=lazy(()=>import('./live/account').then(m=>({default:m.LiveAccountScreen})));
+const LiveWalletScreen=lazy(()=>import('./live/account').then(m=>({default:m.LiveWalletScreen})));
+const LiveStoreScreen=lazy(()=>import('./live/account').then(m=>({default:m.LiveStoreScreen})));
+const LiveDevicesScreen=lazy(()=>import('./live/devices').then(m=>({default:m.LiveDevicesScreen})));
+const LiveTvScreen=lazy(()=>import('./live/tv').then(m=>({default:m.LiveTvScreen})));
+const LiveTvAdminScreen=lazy(()=>import('./live/tvAdmin').then(m=>({default:m.LiveTvAdminScreen})));
+const LiveNotificationsScreen=lazy(()=>import('./live/notifications').then(m=>({default:m.LiveNotificationsScreen})));
+const LivePrayerSettingsScreen=lazy(()=>import('./live/prayer').then(m=>({default:m.LivePrayerSettingsScreen})));
+const LiveReleaseAdminScreen=lazy(()=>import('./live/releaseAdmin').then(m=>({default:m.LiveReleaseAdminScreen})));
+const LiveAdminScreen=lazy(()=>import('./live/admin').then(m=>({default:m.LiveAdminScreen})));
+const LiveAdminStoreScreen=lazy(()=>import('./live/storeAdmin').then(m=>({default:m.LiveAdminStoreScreen})));
+const LiveFriendsScreen=lazy(()=>import('./live/social').then(m=>({default:m.LiveFriendsScreen})));
+const LiveProfileScreen=lazy(()=>import('./live/social').then(m=>({default:m.LiveProfileScreen})));
+const OfflineScreen=lazy(()=>import('./screens').then(m=>({default:m.OfflineScreen})));
+
+function RouteLoading(){
+  return <main className="page-shell"><div className="route-loading" role="status" aria-live="polite">جاري فتح الصفحة...</div></main>;
+}
 
 const navItems=[
   { label: 'الرئيسية', translation:'home' as const, path: '/', icon: 'home' as const },
@@ -51,6 +64,7 @@ function AppShell() {
   const isImmersive = location.pathname.startsWith('/rooms/') || location.pathname.startsWith('/private/');
   return (
     <div className={isImmersive ? 'app-shell immersive-shell' : 'app-shell'}>
+      <Suspense fallback={<RouteLoading/>}>
       <Routes>
         <Route path="/" element={<LiveHomeScreen />} />
         <Route path="/rooms" element={<LiveRoomsScreen />} />
@@ -76,6 +90,7 @@ function AppShell() {
         <Route path="/offline" element={<OfflineScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       <LiveRealtimeEffects />
       <PwaLifecycle />
       {isImmersive ? null : <BottomNavigation />}

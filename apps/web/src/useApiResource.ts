@@ -73,7 +73,12 @@ export function useApiResource<T>(loader:()=>Promise<T>,deps:DependencyList=[]){
 
   useEffect(()=>{
     void reload();
-    return()=>{sequence.current+=1;};
+    const handleOnline=()=>void reload();
+    window.addEventListener('online',handleOnline);
+    return()=>{
+      window.removeEventListener('online',handleOnline);
+      sequence.current+=1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },deps);
 

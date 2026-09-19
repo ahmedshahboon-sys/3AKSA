@@ -9,14 +9,27 @@ import { LiveRoomCard, LiveState, genderToUi } from './common';
 export function LiveHomeScreen(){
   const {user,offline}=useSession();
   const resource=useApiResource(async()=>{
-    const [rooms,friends,wallet,prayer,notifications]=await Promise.all([
+    const [rooms,friends,wallet,prayer,notifications]=await Promise.allSettled([
       api.rooms({sort:'alphabetical'}),
       api.friends(),
       api.wallet(),
       api.prayerSchedule(),
       api.notifications(20)
     ]);
-    return {rooms:rooms.rooms,friends:friends.friends,wallet,prayer:prayer.prayer,notifications:notifications.notifications};
+    const issues:string[]=[];
+    if(rooms.status==='rejected')issues.push('الغرف');
+    if(friends.status==='rejected')issues.push('الأصدقاء');
+    if(wallet.status==='rejected')issues.push('الرصيد');
+    if(prayer.status==='rejected')issues.push('الصلاة');
+    if(notifications.status==='rejected')issues.push('الإشعارات');
+    return {
+      rooms:rooms.status==='fulfilled'?rooms.value.rooms:[],
+      friends:friends.status==='fulfilled'?friends.value.friends:[],
+      wallet:wallet.status==='fulfilled'?wallet.value:null,
+      prayer:prayer.status==='fulfilled'?prayer.value.prayer:null,
+      notifications:notifications.status==='fulfilled'?notifications.value.notifications:[],
+      issues
+    };
   },[]);
 
   const data=resource.data;
@@ -31,7 +44,8 @@ export function LiveHomeScreen(){
   return (
     <main className="page-shell">
       <Header />
-      {offline?<div className="offline-banner">أنت توا Offline — نعرض آخر واجهة محفوظة، والبيانات الحية ترجع لما يرجع النت.</div>:null}
+      {offline?<div className="offline-banner" role="status">أنت توا Offline — نعرض آخر واجهة محفوظة، والبيانات الحية ترجع لما يرجع النت.</div>:null}
+      {data?.issues.length?<div className="partial-data-banner" role="status"><span>بعض البيانات ما حملتش: {data.issues.join('، ')}</span><button type="button" onClick={()=>void resource.reload()}>إعادة المحاولة</button></div>:null}
 
       <section className="welcome-card">
         <div>
@@ -43,7 +57,7 @@ export function LiveHomeScreen(){
       </section>
 
       <SectionTitle title="الغرف النشطة الآن" action="شوف الكل" actionTo="/rooms" />
-      <LiveState loading={resource.loading} error={resource.error} empty={!data?.rooms.length}>
+      <LiveState loading={resource.loading} error={resource.error} empty={!data?.rooms.length} onRetry={()=>void resource.reload()}>
         <div className="stack">{data?.rooms.slice(0,3).map((room)=><LiveRoomCard key={room.id} room={room}/>)}</div>
       </LiveState>
 
@@ -82,7 +96,7 @@ export function LiveHomeScreen(){
       <section className="counter-grid" aria-label="ملخص الحساب">
         <div><strong>{data?.rooms.reduce((sum,room)=>sum+(room.onlineCount??0),0)??0}</strong><span>بالغرف</span></div>
         <div><strong>{data?.friends.length??0}</strong><span>أصدقاء</span></div>
-        <div><strong>{data?.wallet.balanceLyd??'0.000'}</strong><span>د.ل</span></div>
+        <div><strong>{data?.wallet?.balanceLyd??'—'}</strong><span>د.ل</span></div>
       </section>
     </main>
   );
