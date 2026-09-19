@@ -1,0 +1,106 @@
+# FINAL LAUNCH TRACKER — 3AKSA | عكسة
+
+Last updated: 2026-09-19
+
+Status legend: `NOT STARTED` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DEFERRED` · `BLOCKED_EXTERNAL`
+
+## Release baseline
+
+| Item | State | Evidence / notes |
+|---|---|---|
+| develop SHA | DONE | `c3266dd988b9d9ac38075c8d28ac2445db7ed172` |
+| main SHA | DONE | `a64d770004017422c2c8bc4dd94149b3e7691959` |
+| main vs develop | DONE | develop is 62 commits ahead, 0 behind |
+| open PRs | DONE | No open PRs returned at baseline |
+| CI / CodeQL | IN PROGRESS | Workflow definitions exist; current develop SHA has no PR-triggered workflow runs returned by connector |
+| Dependabot | IN PROGRESS | `.github/dependabot.yml` exists; alerts require repository security state inspection |
+| Production HTTP | BLOCKED_EXTERNAL | Execution environment cannot resolve `marbo3a.ly`; production verification must be completed from server/runtime network |
+| PostgreSQL | BLOCKED_EXTERNAL | Requires production/server runtime access |
+| Redis | BLOCKED_EXTERNAL | Requires production/server runtime access |
+| Storage | BLOCKED_EXTERNAL | Requires production/server runtime access |
+| Worker | BLOCKED_EXTERNAL | Requires production/server runtime access |
+| Android physical device | BLOCKED_EXTERNAL | Requires physical Android device + logcat |
+| Official Android signing material | IN PROGRESS | Workflow support exists; signing key availability must be verified outside Git |
+
+## Implementation / behavior audit
+
+| Area | Status | Current classification |
+|---|---|---|
+| Auth / owner bootstrap | IN PROGRESS | Implemented in code; production/bootstrap still unverified |
+| Core API / health | IN PROGRESS | Implemented in code; production behavior unverified |
+| Rooms / realtime | IN PROGRESS | Implemented/partial; requires final behavior audit |
+| Social / block / report | IN PROGRESS | Implemented/partial; requires final UI + behavior audit |
+| Economy / store | IN PROGRESS | Implemented/partial; requires final visual + idempotency audit |
+| TV | IN PROGRESS | Implemented/partial; requires admin/UI + SSRF/import audit |
+| Prayer | IN PROGRESS | Implemented; requires user-journey validation |
+| Notifications / push | IN PROGRESS | Implemented/partial; external credentials optional |
+| PWA | IN PROGRESS | Manifest exists; install/service-worker behavior requires final audit |
+| Android | IN PROGRESS | SecureStore fix exists; P0 post-login stability still requires physical proof |
+| Admin / security | IN PROGRESS | Implemented/partial; break-glass/MFA and final authorization audit pending |
+| Retention | IN PROGRESS | Worker/migrations exist; exact row/file expiry behavior pending proof |
+
+## Groups
+
+### GROUP 0 — BASELINE & REAL STATE AUDIT
+Status: **IN PROGRESS**
+
+- [x] Verify develop SHA.
+- [x] Verify main SHA.
+- [x] Compare main/develop.
+- [x] Inspect open PRs.
+- [x] Confirm package manager and principal app packages.
+- [x] Confirm PWA manifest exists.
+- [ ] Confirm current CI/CodeQL run results for tested release commit.
+- [ ] Confirm migrations list and DB schema state.
+- [ ] Confirm Android versionName/versionCode.
+- [ ] Confirm Production APP_VERSION, /health, /ready, API, Socket.IO, service worker and Nginx subpath.
+- [ ] Classify all launch-critical areas as Implemented / Partial / Missing / Broken.
+
+Files changed:
+- `docs/qa/FINAL_LAUNCH_TRACKER.md`
+
+Tests:
+- Git branch/commit comparison through GitHub.
+- Static source inspection.
+
+Current blockers:
+- Production/server network and physical-device checks are external to this connector session.
+
+### GROUP 1 — ANDROID P0 STABILITY
+Status: **NOT STARTED**
+
+### GROUP 2 — AUTH / RECOVERY / DEVICES / SESSIONS
+Status: **NOT STARTED**
+
+### GROUP 3 — SOCIAL / FRIENDS / BLOCK / REPORT
+Status: **NOT STARTED**
+
+### GROUP 4 — ROOMS + ROOM ADMIN + TV
+Status: **NOT STARTED**
+
+### GROUP 5 — WALLET / STORE / GIFTS / VISUAL ITEMS
+Status: **NOT STARTED**
+
+### GROUP 6 — PWA / APK / PUSH / DISTRIBUTION
+Status: **NOT STARTED**
+
+### GROUP 7 — PRIVACY / SETTINGS / I18N / TELEMETRY / FEATURE FLAGS
+Status: **NOT STARTED**
+
+### GROUP 8 — UX / ACCESSIBILITY / RESPONSIVE / RESILIENCE
+Status: **NOT STARTED**
+
+### GROUP 9 — SECURITY / DATA INTEGRITY / OPERATIONS
+Status: **NOT STARTED**
+
+### GROUP 10 — PRODUCTION DEPLOYMENT & OWNER BOOTSTRAP
+Status: **BLOCKED_EXTERNAL**
+
+### GROUP 11 — FINAL TWO-ACCOUNT + PHYSICAL DEVICE QA
+Status: **BLOCKED_EXTERNAL**
+
+### GROUP 12 — RELEASE CLOSURE & PUBLIC BETA
+Status: **NOT STARTED**
+
+## Rule
+A group is never marked DONE from file existence alone. Launch-critical behavior requires automated proof and, where specified, production/physical-device evidence.
