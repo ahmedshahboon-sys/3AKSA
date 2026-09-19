@@ -137,7 +137,7 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
     const registrationIpLimit = await consumeRateLimit(
       'auth-register-ip',
       `ip:${request.ip}`,
-      12,
+      60,
       60 * 60
     );
     if (!registrationIpLimit.allowed) return rateLimited(reply, registrationIpLimit.retryAfterSeconds);
