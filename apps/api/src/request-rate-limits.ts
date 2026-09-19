@@ -89,6 +89,24 @@ export function registerRequestRateLimits(app: FastifyInstance) {
       bucket = 'notification-preferences';
       limit = 30;
       windowSeconds = 60;
+    } else if (
+      request.method === 'POST' &&
+      (route.endsWith('/admin/security/mfa/setup') || route.endsWith('/admin/security/mfa/confirm'))
+    ) {
+      bucket = 'admin-mfa';
+      limit = 10;
+      windowSeconds = 10 * 60;
+    } else if (request.method === 'POST' && route.includes('/admin/break-glass/')) {
+      bucket = 'admin-break-glass';
+      limit = 10;
+      windowSeconds = 60 * 60;
+    } else if (
+      ['POST','PATCH','PUT','DELETE'].includes(request.method) &&
+      route.includes('/admin/')
+    ) {
+      bucket = 'admin-write';
+      limit = 60;
+      windowSeconds = 60;
     }
 
     if (!bucket) return;

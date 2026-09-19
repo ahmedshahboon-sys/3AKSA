@@ -640,6 +640,7 @@ async function roomAccess(client: PoolClient, roomId: string, userId: string) {
             EXISTS (
               SELECT 1 FROM room_bans rb
               WHERE rb.room_id=r.id AND rb.user_id=$2
+                AND (rb.expires_at IS NULL OR rb.expires_at>now())
             ) AS is_banned
      FROM rooms r
      WHERE r.id=$1

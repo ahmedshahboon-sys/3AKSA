@@ -85,7 +85,7 @@ async function getRoomPolicy(roomId: string, userId: string) {
               WHERE ri.room_id = r.id AND ri.user_id = $2
                 AND (ri.expires_at IS NULL OR ri.expires_at > now())
             ) AS is_invited,
-            EXISTS (SELECT 1 FROM room_bans rb WHERE rb.room_id = r.id AND rb.user_id = $2) AS is_banned
+            EXISTS (SELECT 1 FROM room_bans rb WHERE rb.room_id = r.id AND rb.user_id = $2 AND (rb.expires_at IS NULL OR rb.expires_at > now())) AS is_banned
      FROM rooms r
      WHERE r.id = $1
      LIMIT 1`,

@@ -34,6 +34,7 @@ export const serverEnvSchema = z.object({
   SESSION_SECRET: z.string().min(32),
   PASSWORD_PEPPER: z.string().min(32),
   ADMIN_WHATSAPP_NUMBER: z.string().trim().max(32).default('0912992050'),
+  ADMIN_MFA_ENCRYPTION_KEY: z.string().min(32).optional(),
   PUSH_ENCRYPTION_KEY: z.string().min(32).optional(),
   WEB_PUSH_VAPID_PUBLIC_KEY: z.string().trim().min(1).optional(),
   WEB_PUSH_VAPID_PRIVATE_KEY: z.string().trim().min(1).optional(),
