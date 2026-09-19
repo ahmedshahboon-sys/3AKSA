@@ -13,6 +13,7 @@ import { notificationEvents } from '../notifications/events.js';
 import { createNotification } from '../notifications/service.js';
 import { tvEvents } from '../tv/events.js';
 import { setRoomTvState } from '../tv/service.js';
+import { webOriginAllowed } from '../../security-http.js';
 import {
   createRoomTextMessage,
   createRoomVoiceMessage,
@@ -187,7 +188,11 @@ export function attachRealtime(app: FastifyInstance) {
       const bearer = typeof socket.handshake.auth?.accessToken === 'string'
         ? socket.handshake.auth.accessToken.trim()
         : '';
-      const accessToken = bearer || sessionCookieTokenFromHeader(socket.request.headers.cookie) || '';
+      const cookieToken=sessionCookieTokenFromHeader(socket.request.headers.cookie) || '';
+      if(!bearer&&cookieToken&&!webOriginAllowed(socket.handshake.headers.origin)){
+        return next(new Error('UNAUTHORIZED_ORIGIN'));
+      }
+      const accessToken = bearer || cookieToken;
       if (!accessToken) return next(new Error('UNAUTHORIZED'));
       const user = await authenticateToken(accessToken);
       if (!user) return next(new Error('UNAUTHORIZED'));
