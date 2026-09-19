@@ -86,7 +86,7 @@ export async function registerTelemetryRoutes(app:FastifyInstance,options:{baseP
         await query(
           `INSERT INTO telemetry_events(
              id,event_type,route,app_version,platform,context,created_at,expires_at
-           ) VALUES($1,$2,$3,$4,$5,$6::jsonb,clock_timestamp(),clock_timestamp()+interval '24 hours')`,
+           ) VALUES($1,$2,$3,$4,$5,$6::jsonb,now(),now()+interval '24 hours')`,
           [randomUUID(),event.eventType,event.route,event.appVersion,event.platform,JSON.stringify(event.context)]
         );
       }
