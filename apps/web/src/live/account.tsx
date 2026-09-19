@@ -84,8 +84,8 @@ export function LiveAccountScreen(){
         setLanguage(patch.language);
         setNotice(patch.language==='en'?'Language updated ✅':'تم تحديث اللغة ✅');
       }else setNotice('تم تحديث إعدادات الخصوصية ✅');
-      resource.setData(current=>current?{...current,profile:{...current.profile,...response.profile}}:current);
       if(patch.language)window.location.reload();
+      else await resource.reload();
     }catch(err){setError(readableError(err));}finally{setBusy(false);}
   }
 
