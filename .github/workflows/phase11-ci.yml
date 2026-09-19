@@ -1,0 +1,46 @@
+name: Phase 11 Server Integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase11-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.4.2 --activate
+
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Verify server integration contract
+        run: node scripts/phase11-server-contract.mjs
+
+      - name: Validate Compose model
+        run: docker compose -f infra/docker/compose.server.yml config >/tmp/3aksa-compose.txt
+
+      - name: Build server image
+        run: docker build -f infra/docker/Dockerfile.server -t 3aksa-server:ci .

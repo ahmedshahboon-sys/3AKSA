@@ -1,0 +1,84 @@
+name: threeaksa
+
+x-runtime: &runtime
+  image: 3aksa-server:${THREEAKSA_IMAGE_TAG:-trial}
+  build:
+    context: ../..
+    dockerfile: infra/docker/Dockerfile.server
+  env_file:
+    - /etc/3aksa/3aksa.env
+  environment:
+    HOME: /tmp
+  user: "1000:1000"
+  networks:
+    - marbo3a
+  volumes:
+    - /var/lib/3aksa:/var/lib/3aksa
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *runtime
+    command: ["pnpm","--filter","@3aksa/api","start"]
+    ports:
+      - "127.0.0.1:3101:3101"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3101/3aksa/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  worker:
+    <<: *runtime
+    command: ["pnpm","--filter","@3aksa/worker","start"]
+
+  migrate:
+    <<: *runtime
+    profiles: ["ops"]
+    command: ["pnpm","--filter","@3aksa/api","db:migrate"]
+    restart: "no"
+
+  web-build:
+    image: 3aksa-server:${THREEAKSA_IMAGE_TAG:-trial}
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.server
+    profiles: ["build"]
+    user: "0:0"
+    network_mode: none
+    environment:
+      HOME: /tmp
+      VITE_PUBLIC_BASE_PATH: /3aksa/
+      VITE_PUBLIC_APP_URL: https://marbo3a.ly/3aksa
+      VITE_API_BASE_URL: https://marbo3a.ly/3aksa/api
+      VITE_SOCKET_URL: https://marbo3a.ly
+      VITE_SOCKET_PATH: /3aksa/socket.io
+    volumes:
+      - /var/www/3aksa/3aksa:/web-dist
+    command:
+      - sh
+      - -lc
+      - |
+        pnpm --filter @3aksa/web build
+        rm -rf /web-dist/*
+        cp -a apps/web/dist/. /web-dist/
+        find /web-dist -type d -exec chmod 755 {} +
+        find /web-dist -type f -exec chmod 644 {} +
+
+networks:
+  marbo3a:
+    external: true
+    name: marbo3a_default
