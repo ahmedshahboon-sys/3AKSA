@@ -36,7 +36,7 @@ DELETE FROM notifications;
 DELETE FROM telemetry_events;
 DELETE FROM user_locations;
 DELETE FROM auth_sessions;
-DELETE FROM auth_recovery_requests;
+DELETE FROM password_recovery_requests;
 DELETE FROM admin_mfa_pending;
 DELETE FROM push_subscriptions;
 SQL
