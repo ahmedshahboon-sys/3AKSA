@@ -43,7 +43,7 @@ export function LivePrivateScreen(){
         {tab==='conversations'?(
           <div className="stack chat-list">{conversations.map((chat)=>(
             <Link className="chat-row link-reset" to={'/private/'+chat.id} key={chat.id}>
-              <Avatar name={chat.peer.displayName} gender={genderToUi(chat.peer.gender)}/>
+              <Avatar name={chat.peer.displayName} gender={genderToUi(chat.peer.gender)} cosmetics={chat.peer.cosmetics}/>
               <div className="grow"><h3>{chat.peer.displayName}</h3><p>{chat.lastText||'ابدأ المحادثة'}</p></div>
               <div className="chat-meta"><time>{relativeTime(chat.lastMessageAt)}</time></div>
             </Link>
@@ -51,7 +51,7 @@ export function LivePrivateScreen(){
         ):(
           <div className="stack">{requests.map((request)=>(
             <article className="request-card" key={request.id}>
-              <Avatar name={request.peer.displayName} gender={genderToUi(request.peer.gender)}/>
+              <Avatar name={request.peer.displayName} gender={genderToUi(request.peer.gender)} cosmetics={request.peer.cosmetics}/>
               <div className="grow"><h3>{request.peer.displayName}</h3><p>{request.text||'طلب مراسلة'}</p><small>{relativeTime(request.createdAt)}</small></div>
               <div className="request-actions"><button className="primary-button small" type="button" onClick={()=>void accept(request.id)}>قبول</button><button className="secondary-button" type="button" onClick={()=>void reject(request.id)}>رفض</button></div>
             </article>
@@ -134,7 +134,7 @@ export function LiveConversationScreen(){
         {messages.length?messages.map((message)=>{
           const mine=message.sender?.id===user?.id;
           return <article className={mine?'message-row mine':'message-row'} key={message.id}>
-            {!mine?<Avatar name={message.sender?.displayName||chat.peer.displayName} gender={genderToUi(message.sender?.gender)}/>:null}
+            {!mine?<Avatar name={message.sender?.displayName||chat.peer.displayName} gender={genderToUi(message.sender?.gender)} cosmetics={message.sender?.cosmetics??chat.peer.cosmetics}/>:null}
             <div><div className="message-author"><b>{mine?'أنت':message.sender?.displayName||chat.peer.displayName}</b><time>{localTime(message.createdAt)}</time></div>
               {message.type==='voice'?<ProtectedVoicePlayer load={()=>api.blob('/private/conversations/'+encodeURIComponent(conversationId)+'/messages/'+encodeURIComponent(message.id)+'/voice')}/>:<div className="message-bubble">{message.text||''}</div>}
               <div className="message-actions"><button className={message.reactions?.like.reacted?'active':''} type="button" onClick={()=>void like(message)}>❤️ {message.reactions?.like.count??0}</button></div>
