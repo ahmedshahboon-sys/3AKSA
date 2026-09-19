@@ -13,6 +13,7 @@ import { LiveNotificationsScreen } from './live/notifications';
 import { LivePrayerSettingsScreen } from './live/prayer';
 import { LiveRealtimeEffects } from './live/realtimeEffects';
 import { PwaLifecycle } from './live/pwaLifecycle';
+import { LiveAdminScreen } from './live/admin';
 
 const navItems = [
   { label: 'الرئيسية', path: '/', icon: 'home' as const },
@@ -54,6 +55,7 @@ function AppShell() {
         <Route path="/store" element={<LiveStoreScreen />} />
         <Route path="/tv" element={<LiveTvScreen />} />
         <Route path="/notifications" element={<LiveNotificationsScreen />} />
+        <Route path="/admin" element={<LiveAdminScreen />} />
         <Route path="/offline" element={<OfflineScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
