@@ -1,5 +1,5 @@
 import { createReadStream, promises as fs } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { env } from './config.js';
 
@@ -7,6 +7,7 @@ export const MAX_VOICE_BYTES = 3 * 1024 * 1024;
 export const MAX_VOICE_DURATION_MS = 120_000;
 export const MIN_VOICE_DURATION_MS = 250;
 export const MAX_STORE_ASSET_BYTES = 1024 * 1024;
+export const MAX_ANDROID_APK_BYTES = 100 * 1024 * 1024;
 
 type StoreAssetFormat = { mime: 'image/png'|'image/webp'|'image/gif'|'audio/mpeg'|'audio/ogg'|'audio/webm'; extension: 'png'|'webp'|'gif'|'mp3'|'ogg'|'webm' };
 type VoiceFormat = { mime: 'audio/webm' | 'audio/ogg' | 'audio/mp4'; extension: 'webm' | 'ogg' | 'm4a' };
@@ -106,6 +107,19 @@ export async function storeStoreAsset(buffer:Buffer,itemType:string){
   await fs.mkdir(path.dirname(target),{recursive:true,mode:0o700});
   await fs.writeFile(target,buffer,{flag:'wx',mode:0o600});
   return {storageKey:key,mime:format.mime,bytes:buffer.length};
+}
+
+export async function storeAndroidApk(buffer:Buffer){
+  if(env.STORAGE_DRIVER!=='local')throw new Error('STORAGE_DRIVER_UNSUPPORTED');
+  if(buffer.length<1024||buffer.length>MAX_ANDROID_APK_BYTES)throw new Error('APK_SIZE_INVALID');
+  const zipHeader=buffer.length>=4&&buffer[0]===0x50&&buffer[1]===0x4b&&buffer[2]===0x03&&buffer[3]===0x04;
+  if(!zipHeader||buffer.indexOf(Buffer.from('AndroidManifest.xml'))<0)throw new Error('APK_FORMAT_INVALID');
+  const sha256=createHash('sha256').update(buffer).digest('hex');
+  const key=`releases/android/${randomUUID()}.apk`;
+  const target=localPath(key);
+  await fs.mkdir(path.dirname(target),{recursive:true,mode:0o700});
+  await fs.writeFile(target,buffer,{flag:'wx',mode:0o600});
+  return {storageKey:key,bytes:buffer.length,sha256};
 }
 
 export async function deleteStoredFile(storageKey:string|null|undefined){
