@@ -98,7 +98,9 @@ export class RealtimeClient {
     const socket = this.connect();
     if (!socket) return () => undefined;
     socket.on(event as string, listener as (...args: unknown[]) => void);
-    return () => socket.off(event as string, listener as (...args: unknown[]) => void);
+    return () => {
+      socket.off(event as string, listener as (...args: unknown[]) => void);
+    };
   }
 
   onConnection(listener: (connected: boolean) => void) {
