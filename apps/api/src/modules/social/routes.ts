@@ -4,7 +4,7 @@ import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../../db.js';
 import { consumeRateLimit } from '../../rate-limit.js';
 import { authenticateRequest, type AuthenticatedUser } from '../auth/session.js';
-import { normalizeUsername,usernameReservationKey,verifyPassword } from '../auth/security.js';
+import { isOwnerUsername,normalizeUsername,usernameReservationKey,verifyPassword } from '../auth/security.js';
 import { createNotification } from '../notifications/service.js';
 
 type SocialUserRow = {
@@ -259,6 +259,7 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
     );
     const row=result.rows[0];
     if(!row||!(await verifyPassword(password,row.password_hash)))return reply.code(403).send({error:'INVALID_CREDENTIALS'});
+    if(isOwnerUsername(row.username))return reply.code(409).send({error:'OWNER_ACCOUNT_DELETE_PROTECTED'});
     await withTransaction(async(client)=>{
       await client.query(
         `INSERT INTO reserved_usernames(username_key,reason)
