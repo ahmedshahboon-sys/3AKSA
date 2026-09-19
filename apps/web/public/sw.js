@@ -13,8 +13,7 @@ self.addEventListener('install', (event) => {
         } catch {
           // Installation must still succeed when the network is temporarily unavailable.
         }
-      })
-      .then(() => self.skipWaiting()),
+      }),
   );
 });
 
