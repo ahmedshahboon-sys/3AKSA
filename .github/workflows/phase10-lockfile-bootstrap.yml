@@ -14,7 +14,6 @@ concurrency:
 
 jobs:
   generate:
-    if: github.actor != 'github-actions[bot]' || github.event.head_commit.message != 'chore(phase10): generate pnpm lockfile'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
