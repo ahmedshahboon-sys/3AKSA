@@ -129,6 +129,15 @@ test('social lifecycle: profile -> request -> friendship -> block -> report', as
     });
     assert.equal(block.statusCode, 201, block.body);
 
+    const notificationsAfterBlock = await query<{ count: string }>(
+      `SELECT count(*)::text AS count
+       FROM notifications
+       WHERE (user_id = $1 AND data->>'username' = $4)
+          OR (user_id = $2 AND data->>'username' = $3)`,
+      [aliceSession.user.id, bobSession.user.id, alice.username, bob.username]
+    );
+    assert.equal(notificationsAfterBlock.rows[0]?.count, '0');
+
     const friendsAfterBlock = await app.inject({
       method: 'GET',
       url: '/3aksa/api/friends',
