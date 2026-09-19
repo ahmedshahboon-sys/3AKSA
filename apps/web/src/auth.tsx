@@ -51,13 +51,14 @@ export function AuthScreen(){
           setError('كلمتا المرور مش نفس بعض.');
           return;
         }
+        const ownerClaimCode=String(form.get('ownerClaimCode')??'').trim();
         await register({
           username:String(form.get('username')??'').trim(),
           displayName:String(form.get('displayName')??'').trim(),
           phone:String(form.get('phone')??'').trim(),
           gender:String(form.get('gender')??'boy') as Gender,
           password,
-          ownerClaimCode:String(form.get('ownerClaimCode')??'').trim() || undefined
+          ...(ownerClaimCode?{ownerClaimCode}:{})
         });
       }
     }catch(err){
