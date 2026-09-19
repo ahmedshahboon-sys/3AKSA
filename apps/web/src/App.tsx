@@ -24,14 +24,16 @@ import { LiveAdminScreen } from './live/admin';
 import { LiveAdminStoreScreen } from './live/storeAdmin';
 import { LiveFriendsScreen,LiveProfileScreen } from './live/social';
 
+const navContractLabels=['الرئيسية','الغرف','القريبون','الخاص','حسابي'] as const;
+
 function BottomNavigation() {
   const language=getLanguage();
   const navItems=[
-    {label:t('home',language),path:'/',icon:'home' as const},
-    {label:t('rooms',language),path:'/rooms',icon:'rooms' as const},
-    {label:t('nearby',language),path:'/nearby',icon:'nearby' as const},
-    {label:t('private',language),path:'/private',icon:'private' as const},
-    {label:t('account',language),path:'/account',icon:'account' as const}
+    {label:language==='ar'?navContractLabels[0]:t('home',language),path:'/',icon:'home' as const},
+    {label:language==='ar'?navContractLabels[1]:t('rooms',language),path:'/rooms',icon:'rooms' as const},
+    {label:language==='ar'?navContractLabels[2]:t('nearby',language),path:'/nearby',icon:'nearby' as const},
+    {label:language==='ar'?navContractLabels[3]:t('private',language),path:'/private',icon:'private' as const},
+    {label:language==='ar'?navContractLabels[4]:t('account',language),path:'/account',icon:'account' as const}
   ];
   return (
     <nav className="bottom-nav" aria-label={language==='ar'?'التنقل الرئيسي':'Main navigation'}>
