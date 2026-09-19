@@ -19,7 +19,7 @@ if [[ "$STORAGE_LOCAL_ROOT" != /* || "$STORAGE_LOCAL_ROOT" == "/" ]]; then
   exit 5
 fi
 
-"$(dirname "$0")/verify-backup.sh" "$backup_dir"
+bash "$(dirname "$0")/verify-backup.sh" "$backup_dir"
 
 pg_restore --clean --if-exists --no-owner --no-acl --exit-on-error --dbname="$DATABASE_URL" "$backup_dir/database.dump"
 
