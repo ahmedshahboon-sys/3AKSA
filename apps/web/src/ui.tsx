@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import type { UserCosmetics } from '@3aksa/api-client';
 import { Link } from 'react-router-dom';
 import { Icon } from './icons';
 import type { Gender } from './data';
+import { api } from './runtime';
 
 export function Logo({ size = 52 }: { size?: number }) {
   return (
@@ -39,12 +41,20 @@ export function SectionTitle({ title, action, actionTo }: { title: string; actio
   );
 }
 
-export function Avatar({ name, online = true, gender }: { name: string; online?: boolean; gender?: Gender }) {
+export function Avatar({
+  name,online=true,gender,cosmetics
+}:{name:string;online?:boolean;gender?:Gender;cosmetics?:UserCosmetics}){
+  const frame=cosmetics?.frameCode?api.storeAssetUrl(cosmetics.frameCode):null;
+  const badge=cosmetics?.badgeCode?api.storeAssetUrl(cosmetics.badgeCode):null;
   return (
-    <div className={`avatar ${gender ? `avatar-${gender}` : ''}`} aria-label={name}>
-      <span>{name.slice(0, 1)}</span>
-      {online ? <i className="presence-dot" aria-label="متصل" /> : null}
-    </div>
+    <span className="avatar-stack" aria-label={name}>
+      <span className={`avatar ${gender?`avatar-${gender}`:''}`}>
+        <span>{name.slice(0,1)}</span>
+        {frame?<img className="avatar-frame" src={frame} alt="" aria-hidden="true"/>:null}
+        {online?<i className="presence-dot" aria-label="متصل"/>:null}
+      </span>
+      {badge?<img className="avatar-badge" src={badge} alt={cosmetics?.badgeName||'شارة'}/>:cosmetics?.badgeName?<small className="avatar-badge-text">{cosmetics.badgeName}</small>:null}
+    </span>
   );
 }
 
