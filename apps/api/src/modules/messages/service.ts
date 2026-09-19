@@ -9,6 +9,9 @@ export type RoomMessageRow = {
   sender_username: string;
   sender_display_name: string;
   sender_gender: 'boy' | 'girl';
+  sender_frame_code?: string | null;
+  sender_badge_code?: string | null;
+  sender_badge_name?: string | null;
   message_type: 'text' | 'voice';
   text_content: string | null;
   storage_key: string | null;
@@ -26,6 +29,8 @@ export type RoomMessageRow = {
 const MESSAGE_SELECT = `
   m.id, m.room_id, m.sender_id, u.username AS sender_username,
   u.display_name AS sender_display_name, u.gender AS sender_gender,
+  cosmetics.frame_code AS sender_frame_code,cosmetics.badge_code AS sender_badge_code,
+  cosmetics.badge_name AS sender_badge_name,
   m.message_type, m.text_content, m.storage_key, m.media_mime,
   m.media_bytes, m.media_duration_ms, m.client_message_id,
   m.created_at, m.expires_at
@@ -57,7 +62,8 @@ export function roomMessageDto(message: RoomMessageRow) {
       id: message.sender_id,
       username: message.sender_username,
       displayName: message.sender_display_name,
-      gender: message.sender_gender
+      gender: message.sender_gender,
+      cosmetics:{frameCode:message.sender_frame_code??null,badgeCode:message.sender_badge_code??null,badgeName:message.sender_badge_name??null}
     }
   };
 }
@@ -83,6 +89,7 @@ async function existingRoomMessage(
             ) AS viewer_liked
      FROM room_messages m
      JOIN users u ON u.id = m.sender_id
+     LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=u.id
      WHERE m.sender_id = $1 AND m.client_message_id = $2
      LIMIT 1`,
     [senderId, clientMessageId]
@@ -121,11 +128,14 @@ export async function createRoomTextMessage(
             )
        SELECT i.id, i.room_id, i.sender_id, u.username AS sender_username,
               u.display_name AS sender_display_name, u.gender AS sender_gender,
+              cosmetics.frame_code AS sender_frame_code,cosmetics.badge_code AS sender_badge_code,
+              cosmetics.badge_name AS sender_badge_name,
               i.message_type, i.text_content, i.storage_key, i.media_mime,
               i.media_bytes, i.media_duration_ms, i.client_message_id,
               i.created_at, i.expires_at
        FROM inserted i
-       JOIN users u ON u.id = i.sender_id`,
+       JOIN users u ON u.id = i.sender_id
+       LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=u.id`,
       [randomUUID(), roomId, senderId, text, clientMessageId ?? null]
     );
     return { ...result.rows[0]!, _idempotentReplay: false };
@@ -165,11 +175,14 @@ export async function createRoomVoiceMessage(
             )
        SELECT i.id, i.room_id, i.sender_id, u.username AS sender_username,
               u.display_name AS sender_display_name, u.gender AS sender_gender,
+              cosmetics.frame_code AS sender_frame_code,cosmetics.badge_code AS sender_badge_code,
+              cosmetics.badge_name AS sender_badge_name,
               i.message_type, i.text_content, i.storage_key, i.media_mime,
               i.media_bytes, i.media_duration_ms, i.client_message_id,
               i.created_at, i.expires_at
        FROM inserted i
-       JOIN users u ON u.id = i.sender_id`,
+       JOIN users u ON u.id = i.sender_id
+       LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=u.id`,
       [
         randomUUID(),
         roomId,
@@ -217,6 +230,7 @@ export async function listRoomMessages(
             ) AS viewer_liked
      FROM room_messages m
      JOIN users u ON u.id = m.sender_id
+     LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=u.id
      WHERE m.room_id = $1
        AND m.deleted_at IS NULL
        AND m.expires_at > now()
@@ -240,6 +254,7 @@ export async function getLiveRoomVoice(messageId: string, roomId: string, viewer
     `SELECT ${MESSAGE_SELECT}
      FROM room_messages m
      JOIN users u ON u.id = m.sender_id
+     LEFT JOIN user_public_cosmetics cosmetics ON cosmetics.user_id=u.id
      WHERE m.id = $1 AND m.room_id = $2
        AND m.message_type = 'voice'
        AND m.deleted_at IS NULL
