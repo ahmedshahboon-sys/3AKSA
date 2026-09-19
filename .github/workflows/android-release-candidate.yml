@@ -19,8 +19,8 @@ jobs:
     timeout-minutes: 32
     env:
       ANDROID_APP_ID: ly.threeaksa.app
-      ANDROID_VERSION_NAME: "1.0.0"
-      ANDROID_VERSION_CODE: "1"
+      ANDROID_VERSION_NAME: "1.0.1"
+      ANDROID_VERSION_CODE: "2"
       VITE_PUBLIC_BASE_PATH: /
       VITE_PUBLIC_APP_URL: https://marbo3a.ly/3aksa
       VITE_API_BASE_URL: https://marbo3a.ly/3aksa/api
@@ -68,6 +68,21 @@ jobs:
           node scripts/install-launcher-assets.mjs
           node scripts/set-android-version.mjs
 
+      - name: Verify SecureStore registration order
+        working-directory: apps/mobile
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const path='android/app/src/main/java/ly/threeaksa/app/MainActivity.java';
+          const source=fs.readFileSync(path,'utf8');
+          const plugin=source.indexOf('registerPlugin(SecureStorePlugin.class)');
+          const bridge=source.indexOf('super.onCreate(savedInstanceState)');
+          if(plugin<0||bridge<0||plugin>bridge){
+            throw new Error('SecureStore must be registered before Capacitor BridgeActivity initialization');
+          }
+          console.log('SecureStore registration order verified.');
+          NODE
+
       - name: Verify generated launcher identity
         working-directory: apps/mobile
         run: |
@@ -94,8 +109,8 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt"
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           grep -q "package: name='ly.threeaksa.app'" /tmp/badging.txt
-          grep -q "versionCode='1'" /tmp/badging.txt
-          grep -q "versionName='1.0.0'" /tmp/badging.txt
+          grep -q "versionCode='2'" /tmp/badging.txt
+          grep -q "versionName='1.0.1'" /tmp/badging.txt
           if "$AAPT" dump xmltree "$APK" AndroidManifest.xml | grep -q 'android:debuggable(0x0101000f)=(type 0x12)0xffffffff'; then
             echo "::error::Release APK is debuggable"
             exit 1
@@ -108,7 +123,7 @@ jobs:
           APK=apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
           BUILD_TOOLS="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           mkdir -p release-candidate/build-tools/lib
-          cp "$APK" release-candidate/3aksa-1.0.0-1-unsigned.apk
+          cp "$APK" release-candidate/3aksa-1.0.1-2-unsigned.apk
           cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/zipalign" release-candidate/build-tools/
           cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" release-candidate/build-tools/
           cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/lib/apksigner.jar" release-candidate/build-tools/lib/
@@ -118,12 +133,12 @@ jobs:
           done
           chmod +x release-candidate/build-tools/zipalign release-candidate/build-tools/apksigner
           printf '%s\n' "$BUILD_TOOLS" > release-candidate/build-tools-version.txt
-          sha256sum release-candidate/3aksa-1.0.0-1-unsigned.apk > release-candidate/3aksa-1.0.0-1-unsigned.apk.sha256
+          sha256sum release-candidate/3aksa-1.0.1-2-unsigned.apk > release-candidate/3aksa-1.0.1-2-unsigned.apk.sha256
 
       - name: Upload release candidate
         uses: actions/upload-artifact@v4
         with:
-          name: 3aksa-android-release-candidate-1.0.0
+          name: 3aksa-android-release-candidate-1.0.1
           path: release-candidate
           if-no-files-found: error
           retention-days: 14
