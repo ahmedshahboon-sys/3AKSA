@@ -1,7 +1,8 @@
 import { useState,type FormEvent } from 'react';
 import { Link,useNavigate,useParams,useSearchParams } from 'react-router-dom';
-import type { FriendRequest,ReportReason } from '@3aksa/api-client';
+import type { FriendRequest,ReportReason,StoreItem } from '@3aksa/api-client';
 import { api } from '../runtime';
+import { useSession } from '../session';
 import { Avatar,ScreenHeader,SectionTitle } from '../ui';
 import { readableError,useApiResource } from '../useApiResource';
 import { LiveState,genderToUi,relativeTime } from './common';
@@ -121,16 +122,30 @@ export function UserSafetyActions({username,onChanged,initialReportOpen=false}:{
 export function LiveProfileScreen(){
   const {username=''}=useParams();
   const navigate=useNavigate();
+  const {user}=useSession();
   const [searchParams]=useSearchParams();
   const [actionError,setActionError]=useState('');
   const [notice,setNotice]=useState('');
-  const resource=useApiResource(()=>api.profile(username),[username]);
+  const resource=useApiResource(async()=>{
+    const [profile,gifts]=await Promise.all([api.profile(username),api.storeItems('gift')]);
+    return {profile:profile.profile,gifts:gifts.items};
+  },[username]);
   const profile=resource.data?.profile;
 
   async function addFriend(){
     setActionError('');setNotice('');
     try{await api.createFriendRequest(username);setNotice('تم إرسال طلب الصداقة ✅');}
     catch(err){setActionError(readableError(err));}
+  }
+  async function sendGift(item:StoreItem){
+    if(!profile||profile.username===user?.username)return;
+    setActionError('');setNotice('');
+    try{
+      await api.sendGift(profile.username,item.code,crypto.randomUUID(),{type:'profile'});
+      const recipient=(item.recipientShareMilli??0)/1000;
+      const platform=(item.priceMilli-(item.recipientShareMilli??0))/1000;
+      setNotice(`تم إرسال ${item.name} ✅ · ${(item.priceMilli/1000).toFixed(3)} LYD · ${recipient.toFixed(3)} LYD recipient · ${platform.toFixed(3)} LYD platform`);
+    }catch(err){setActionError(readableError(err));}
   }
 
   return <main className="page-shell">
@@ -146,6 +161,11 @@ export function LiveProfileScreen(){
           <button className="secondary-button" type="button" onClick={()=>navigate('/private/new/'+encodeURIComponent(profile.username))}>مراسلة</button>
         </div>
         <UserSafetyActions username={profile.username} initialReportOpen={searchParams.get('report')==='1'} onChanged={()=>navigate('/friends')}/>
+        {profile.username!==user?.username&&resource.data?.gifts.length?<section className="store-inline-actions">
+          <b>إرسال هدية</b>
+          <div className="admin-actions">{resource.data.gifts.map((item)=><button key={item.id} className="secondary-button" type="button" onClick={()=>void sendGift(item)}>{item.assetKey?<img src={api.storeAssetUrl(item.code)} alt="" className="inline-store-icon"/>:'🌹'} {item.name} · {(item.priceMilli/1000).toFixed(3)} LYD</button>)}</div>
+          {resource.data.gifts.some((item)=>item.code==='rose')?<small>Rose: 1.000 LYD · 0.500 LYD recipient · 0.500 LYD platform</small>:null}
+        </section>:null}
       </div>:null}
       {actionError?<div className="live-error">{actionError}</div>:null}
       {notice?<div className="success-note">{notice}</div>:null}
