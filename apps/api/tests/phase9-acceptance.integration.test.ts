@@ -50,6 +50,7 @@ async function setNearby(
 test('Phase 9 final acceptance: cross-platform auth, block privacy, temporary room bans and security gates',async()=>{
   const app=await buildApp();
   const suffix=randomUUID().replaceAll('-','').slice(0,8);
+  const phoneDigits=String(BigInt(`0x${suffix}`)).padStart(10,'0').slice(-8);
   const webUser=`qa_web_${suffix}`;
   const peerUser=`qa_peer_${suffix}`;
   const ownerUser=`qa_owner_${suffix}`;
@@ -60,7 +61,7 @@ test('Phase 9 final acceptance: cross-platform auth, block privacy, temporary ro
 
   try{
     const web=await register(app,{
-      username:webUser,phone:`+2189100${suffix.slice(0,6)}`,gender:'boy',
+      username:webUser,phone:`+2189100${phoneDigits.slice(0,6)}`,gender:'boy',
       deviceId:`qa-web-${suffix}`,platform:'web'
     });
 
@@ -84,16 +85,23 @@ test('Phase 9 final acceptance: cross-platform auth, block privacy, temporary ro
     const nonAdmin=await app.inject({method:'GET',url:'/3aksa/api/admin/me',headers:auth(web.accessToken)});
     assert.equal(nonAdmin.statusCode,403,nonAdmin.body);
 
+    const ready=await app.inject({method:'GET',url:'/3aksa/api/ready'});
+    assert.equal(ready.statusCode,200,ready.body);
+    assert.deepEqual(
+      ready.json<{status:string;checks:{database:string;redis:string;storage:string}}>().checks,
+      {database:'ok',redis:'ok',storage:'ok'}
+    );
+
     const peer=await register(app,{
-      username:peerUser,phone:`+2189200${suffix.slice(0,6)}`,gender:'boy',
+      username:peerUser,phone:`+2189200${phoneDigits.slice(0,6)}`,gender:'boy',
       deviceId:`qa-peer-${suffix}`,platform:'android'
     });
     const owner=await register(app,{
-      username:ownerUser,phone:`+2189300${suffix.slice(0,6)}`,gender:'boy',
+      username:ownerUser,phone:`+2189300${phoneDigits.slice(0,6)}`,gender:'boy',
       deviceId:`qa-owner-${suffix}`,platform:'web'
     });
     const girl=await register(app,{
-      username:girlUser,phone:`+2189400${suffix.slice(0,6)}`,gender:'girl',
+      username:girlUser,phone:`+2189400${phoneDigits.slice(0,6)}`,gender:'girl',
       deviceId:`qa-girl-${suffix}`,platform:'android'
     });
 
@@ -174,7 +182,7 @@ test('Phase 9 final acceptance: cross-platform auth, block privacy, temporary ro
     const reservedAttempt=await app.inject({
       method:'POST',url:'/3aksa/api/auth/register',
       payload:{
-        username:reservedUser,displayName:'Reserved QA',phone:`+2189500${suffix.slice(0,6)}`,
+        username:reservedUser,displayName:'Reserved QA',phone:`+2189500${phoneDigits.slice(0,6)}`,
         gender:'boy',password:'StrongPass123!',deviceId:`qa-reserved-${suffix}`,platform:'android'
       }
     });
@@ -188,7 +196,7 @@ test('Phase 9 final acceptance: cross-platform auth, block privacy, temporary ro
     const blockedAttempt=await app.inject({
       method:'POST',url:'/3aksa/api/auth/register',
       payload:{
-        username:blockedUser,displayName:'Blocked device QA',phone:`+2189600${suffix.slice(0,6)}`,
+        username:blockedUser,displayName:'Blocked device QA',phone:`+2189600${phoneDigits.slice(0,6)}`,
         gender:'boy',password:'StrongPass123!',deviceId:blockedDevice,platform:'android'
       }
     });
