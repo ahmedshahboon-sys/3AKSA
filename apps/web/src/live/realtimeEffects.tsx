@@ -51,8 +51,8 @@ export function LiveRealtimeEffects(){
   const [toast,setToast]=useState<Toast>(null);
   const timer=useRef<number|null>(null);
   useEffect(()=>{
-    void initializeNativePush((path)=>navigate(path));
-    void initializeNativeAppLinks((path)=>navigate(path));
+    void initializeNativePush((path)=>navigate(path)).catch(()=>undefined);
+    void initializeNativeAppLinks((path)=>navigate(path)).catch(()=>undefined);
     function show(next:NonNullable<Toast>){
       if(timer.current)window.clearTimeout(timer.current);
       setToast(next);timer.current=window.setTimeout(()=>setToast(null),next.duration);
