@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ApiError, type AuthSession, type AuthUser, type Gender } from '@3aksa/api-client';
 import {
-  api,getAccessToken,getCachedUser,getInstallationId,getPlatform,realtime,
+  api,getAccessToken,getCachedUser,getInstallationId,getPlatform,initializeRuntimeSecurity,realtime,
   setAccessToken,setCachedUser
 } from './runtime';
 
@@ -21,8 +21,8 @@ type SessionContextValue={
 
 const SessionContext=createContext<SessionContextValue|null>(null);
 
-function saveSession(session:AuthSession){
-  setAccessToken(session.accessToken);
+async function saveSession(session:AuthSession){
+  await setAccessToken(session.accessToken);
   setCachedUser(session.user);
   realtime.refreshAuth();
 }
@@ -33,7 +33,7 @@ export function SessionProvider({children}:{children:ReactNode}){
   const [offline,setOffline]=useState(false);
 
   const clear=useCallback(()=>{
-    setAccessToken(null);
+    void setAccessToken(null);
     setCachedUser(null);
     realtime.disconnect();
     setUser(null);
@@ -42,8 +42,8 @@ export function SessionProvider({children}:{children:ReactNode}){
   },[]);
 
   const refresh=useCallback(async()=>{
-    const token=getAccessToken();
-    if(!token){
+    await initializeRuntimeSecurity();
+    if(getPlatform()==='android'&&!getAccessToken()){
       clear();
       return;
     }
@@ -68,12 +68,15 @@ export function SessionProvider({children}:{children:ReactNode}){
   useEffect(()=>{void refresh();},[refresh]);
 
   const login=useCallback(async(input:{login:string;password:string})=>{
+    await initializeRuntimeSecurity();
+    const platform=getPlatform();
     const session=await api.login({
       ...input,
       deviceId:getInstallationId(),
-      platform:getPlatform()
+      platform,
+      sessionMode:platform==='web'?'cookie':'bearer'
     });
-    saveSession(session);
+    await saveSession(session);
     setUser(session.user);
     setOffline(false);
     setStatus('authenticated');
@@ -82,12 +85,15 @@ export function SessionProvider({children}:{children:ReactNode}){
   const register=useCallback(async(input:{
     username:string;displayName:string;phone:string;gender:Gender;password:string;
   })=>{
+    await initializeRuntimeSecurity();
+    const platform=getPlatform();
     const session=await api.register({
       ...input,
       deviceId:getInstallationId(),
-      platform:getPlatform()
+      platform,
+      sessionMode:platform==='web'?'cookie':'bearer'
     });
-    saveSession(session);
+    await saveSession(session);
     setUser(session.user);
     setOffline(false);
     setStatus('authenticated');
