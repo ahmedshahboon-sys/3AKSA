@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import { apiBasePath, env } from './config.js';
 import { db } from './db.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
+import { registerAdminRoutes } from './modules/admin/routes.js';
 import { registerEconomyRoutes } from './modules/economy/routes.js';
 import { registerStoreRoutes } from './modules/economy/store-routes.js';
 import { registerHealthRoutes } from './modules/health/routes.js';
@@ -42,6 +43,10 @@ export async function buildApp() {
   });
 
   await registerAuthRoutes(app, {
+    basePath: apiBasePath
+  });
+
+  await registerAdminRoutes(app, {
     basePath: apiBasePath
   });
 
