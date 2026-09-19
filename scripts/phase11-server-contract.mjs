@@ -26,6 +26,12 @@ must(compose,'read_only: true','runtime filesystem');
 must(compose,'cap_drop:','capability hardening');
 must(compose,'no-new-privileges:true','container hardening');
 
+mustNot(compose,'command: ["pnpm","--filter","@3aksa/api","start"]','API runtime command');
+mustNot(compose,'command: ["pnpm","--filter","@3aksa/worker","start"]','worker runtime command');
+mustNot(compose,'command: ["pnpm","--filter","@3aksa/api","db:migrate"]','migration runtime command');
+must(compose,'/app/apps/api/node_modules/.bin/tsx','direct API/migration runtime');
+must(compose,'/app/apps/worker/node_modules/.bin/tsx','direct worker runtime');
+
 must(dockerfile,'pnpm install --frozen-lockfile','deterministic image install');
 must(dockerfile,'dumb-init','signal handling');
 

@@ -47,7 +47,7 @@ jobs:
       - name: Build server image
         run: docker build -f infra/docker/Dockerfile.server -t 3aksa-server:ci .
 
-      - name: Verify pnpm is runtime-ready without Corepack download
+      - name: Verify direct TS runtime works read-only without network
         run: >-
           docker run --rm
           --network none
@@ -56,4 +56,6 @@ jobs:
           --user 1000:1000
           -e HOME=/tmp
           3aksa-server:ci
-          pnpm --version
+          /app/apps/api/node_modules/.bin/tsx
+          -e
+          "console.log('runtime-tsx-ready')"
