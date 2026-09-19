@@ -73,6 +73,7 @@ Thumbs.db
 .nx/
 playwright-report/
 test-results/
+qa-evidence/
 
 # Production/user data must never be committed
 production-data/
