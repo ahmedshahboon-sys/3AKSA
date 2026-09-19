@@ -45,14 +45,24 @@ export function productionSecurityErrors(env:ServerEnv){
     }
   }
 
-  for(const [name,value] of [
+  const requiredSecrets=[
     ['SESSION_SECRET',env.SESSION_SECRET],
     ['PASSWORD_PEPPER',env.PASSWORD_PEPPER],
     ['ADMIN_MFA_ENCRYPTION_KEY',env.ADMIN_MFA_ENCRYPTION_KEY],
     ['PUSH_ENCRYPTION_KEY',env.PUSH_ENCRYPTION_KEY]
-  ] as const){
+  ] as const;
+  for(const [name,value] of requiredSecrets){
     if(!value)errors.push(`${name} is required in production`);
     else if(isPlaceholder(value))errors.push(`${name} still looks like a placeholder`);
+    else if(value.length<32)errors.push(`${name} must be at least 32 characters`);
+  }
+  const populatedSecrets=requiredSecrets.filter((entry):entry is readonly [typeof requiredSecrets[number][0],string]=>Boolean(entry[1]));
+  for(let index=0;index<populatedSecrets.length;index+=1){
+    for(let other=index+1;other<populatedSecrets.length;other+=1){
+      if(populatedSecrets[index]![1]===populatedSecrets[other]![1]){
+        errors.push(`${populatedSecrets[index]![0]} and ${populatedSecrets[other]![0]} must use different values`);
+      }
+    }
   }
 
   const vapidPublic=Boolean(env.WEB_PUSH_VAPID_PUBLIC_KEY);

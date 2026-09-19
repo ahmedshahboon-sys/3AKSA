@@ -196,7 +196,7 @@ Closure:
 - Production migration/worker/privacy behavior remains external.
 
 ### GROUP 8 — UX / ACCESSIBILITY / RESPONSIVE / RESILIENCE
-Status: **IN PROGRESS**
+Status: **COMPLETE**
 
 Group 8 implementation notes:
 - Home uses partial-success loading so rooms/friends/wallet/prayer/notifications fail independently instead of blanking the whole screen.
@@ -206,8 +206,27 @@ Group 8 implementation notes:
 - Added coarse-pointer touch targets, stronger keyboard focus visibility, compact-phone layout hardening and preserved reduced-motion behavior.
 - Added `tests/group8-ux-performance.test.mjs`.
 
+Closure:
+- PR #28 merged to develop at `be74f33a3cfa13a97232e7a957b269eff971ca07`.
+- Phase 1–11 applicable CI, Phase 9 QA, CodeQL Security and Android Release Candidate: PASS.
+
 ### GROUP 9 — SECURITY / DATA INTEGRITY / OPERATIONS
-Status: **NOT STARTED**
+Status: **COMPLETE**
+
+Changes:
+- Hardened Production preflight so required security secrets must be non-placeholder, at least 32 characters, and distinct from each other.
+- Added retention-safe PostgreSQL backup tooling that excludes temporary messages/reactions, notifications, Telemetry, precise Nearby locations, live sessions/recovery/MFA-pending state and Push subscriptions.
+- Durable local backup contains Store assets and Android releases only; the `voice/` directory is explicitly excluded.
+- Added SHA-256 + pg_restore-list backup verification and archive path validation.
+- Added destructive restore guards, including a separate explicit Production confirmation, and defense-in-depth cleanup of ephemeral/session/location/push state after restore.
+- Added retention audit for expired rows, the hard Telemetry 24h invariant and stale voice files.
+- Added non-mutating operational release preflight.
+- Added Backup/Restore, Rollback, Secret Rotation and Security Operations runbooks.
+- Documented that application rate limits are not volumetric DDoS protection; edge/reverse-proxy/provider controls remain required.
+- Added `tests/group9-security-operations.test.mjs`.
+
+Closure gate:
+- Merge only after all applicable CI, Phase 9 QA, CodeQL Security and Android Release Candidate pass.
 
 ### GROUP 10 — PRODUCTION DEPLOYMENT & OWNER BOOTSTRAP
 Status: **BLOCKED_EXTERNAL**
