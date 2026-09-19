@@ -1,6 +1,6 @@
 import { useState,type FormEvent } from 'react';
-import { Link,useNavigate,useParams } from 'react-router-dom';
-import type { FriendRequest,Profile,ReportReason } from '@3aksa/api-client';
+import { Link,useNavigate,useParams,useSearchParams } from 'react-router-dom';
+import type { FriendRequest,ReportReason } from '@3aksa/api-client';
 import { api } from '../runtime';
 import { Avatar,ScreenHeader,SectionTitle } from '../ui';
 import { readableError,useApiResource } from '../useApiResource';
@@ -81,8 +81,8 @@ export function LiveFriendsScreen(){
   </main>;
 }
 
-export function UserSafetyActions({username,onChanged}:{username:string;onChanged?:()=>void}){
-  const [showReport,setShowReport]=useState(false);
+export function UserSafetyActions({username,onChanged,initialReportOpen=false}:{username:string;onChanged?:()=>void;initialReportOpen?:boolean}){
+  const [showReport,setShowReport]=useState(initialReportOpen);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
   const [busy,setBusy]=useState(false);
@@ -121,6 +121,7 @@ export function UserSafetyActions({username,onChanged}:{username:string;onChange
 export function LiveProfileScreen(){
   const {username=''}=useParams();
   const navigate=useNavigate();
+  const [searchParams]=useSearchParams();
   const [actionError,setActionError]=useState('');
   const [notice,setNotice]=useState('');
   const resource=useApiResource(()=>api.profile(username),[username]);
@@ -144,7 +145,7 @@ export function LiveProfileScreen(){
           <button className="primary-button small" type="button" onClick={()=>void addFriend()}>إضافة صديق</button>
           <button className="secondary-button" type="button" onClick={()=>navigate('/private/new/'+encodeURIComponent(profile.username))}>مراسلة</button>
         </div>
-        <UserSafetyActions username={profile.username} onChanged={()=>navigate('/friends')}/>
+        <UserSafetyActions username={profile.username} initialReportOpen={searchParams.get('report')==='1'} onChanged={()=>navigate('/friends')}/>
       </div>:null}
       {actionError?<div className="live-error">{actionError}</div>:null}
       {notice?<div className="success-note">{notice}</div>:null}
