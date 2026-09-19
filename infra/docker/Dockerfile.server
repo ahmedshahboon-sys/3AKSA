@@ -5,7 +5,8 @@ RUN apk add --no-cache dumb-init
 WORKDIR /app
 ENV CI=1
 
-RUN corepack enable && corepack prepare pnpm@12.4.2 --activate
+RUN npm install --global pnpm@12.4.2 \
+    && pnpm --version
 
 COPY . .
 RUN pnpm install --frozen-lockfile
