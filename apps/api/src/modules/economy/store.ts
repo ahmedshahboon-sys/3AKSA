@@ -33,6 +33,7 @@ type EquipmentRow = StoreItemRow & { slot: EquipSlot; equipped_at: Date };
 
 function itemDto(row: StoreItemRow) {
   const priceMilli = asSafeInteger(row.price_milli);
+  const recipientShareMilli = asSafeInteger(row.recipient_share_milli);
   return {
     id: row.id,
     code: row.code,
@@ -42,7 +43,9 @@ function itemDto(row: StoreItemRow) {
     priceMilli,
     priceLyd: formatLydFromMilli(priceMilli),
     currency: 'LYD' as const,
+    recipientShareMilli,
     consumable: row.consumable,
+    assetKey: row.asset_key,
     metadata: row.metadata
   };
 }
@@ -104,6 +107,17 @@ async function lockAccounts(client: PoolClient, ids: string[]) {
      FOR UPDATE`,
     [ids]
   );
+}
+
+export async function publicStoreAsset(code:string){
+  const result=await query<{asset_key:string|null;metadata:Record<string,unknown>}>(
+    `SELECT asset_key,metadata FROM store_items WHERE code=$1 AND status='active' LIMIT 1`,
+    [code]
+  );
+  const row=result.rows[0];
+  if(!row?.asset_key)return null;
+  const mime=typeof row.metadata.assetMime==='string'?row.metadata.assetMime:'application/octet-stream';
+  return {storageKey:row.asset_key,mime};
 }
 
 export async function listStoreItems(type?: StoreItemType) {
