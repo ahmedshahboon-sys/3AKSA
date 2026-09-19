@@ -71,7 +71,7 @@ jobs:
           corepack prepare pnpm@12.4.2 --activate
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck all workspaces
         run: pnpm typecheck
