@@ -285,7 +285,13 @@ export async function registerSocialRoutes(app: FastifyInstance, options: { base
   });
 
   app.get<{ Params: { username: string } }>(`${prefix}/profiles/:username`, async (request, reply) => {
+    const flood=await consumeRateLimit('profile-view-ip',`ip:${request.ip}`,240,60);
+    if(!flood.allowed){reply.header('Retry-After',String(flood.retryAfterSeconds));return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:flood.retryAfterSeconds});}
     const auth = await requireUser(request, reply);
+    if(auth){
+      const limit=await consumeRateLimit('profile-view',`user:${auth.id}`,180,60);
+      if(!limit.allowed){reply.header('Retry-After',String(limit.retryAfterSeconds));return reply.code(429).send({error:'RATE_LIMITED',retryAfterSeconds:limit.retryAfterSeconds});}
+    }
     if (!auth) return;
     const target = await lookupActiveUser(request.params.username);
     if (!target) return reply.code(404).send({ error: 'PROFILE_NOT_FOUND' });
