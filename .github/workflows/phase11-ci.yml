@@ -40,6 +40,8 @@ jobs:
         run: node scripts/phase11-server-contract.mjs
 
       - name: Validate Compose model
+        env:
+          THREEAKSA_ENV_FILE: .env.example
         run: docker compose -f infra/docker/compose.server.yml config >/tmp/3aksa-compose.txt
 
       - name: Build server image
