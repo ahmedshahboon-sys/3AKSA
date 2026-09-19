@@ -134,11 +134,12 @@ export async function registerStoreRoutes(app:FastifyInstance,options:{basePath:
     try{
       const result=await sendPaidGift(user.id,recipientUsername,giftCode,key,request.body.contextType,request.body.contextId);
       if(!result.replayed){
+        const paidReaction=result.item.type==='reaction';
         await createNotification({
           userId:result.recipient.id,
-          type:'gift_received',
-          title:'هدية جديدة',
-          body:`${user.display_name} بعثلك ${result.item.name}`,
+          type:paidReaction?'paid_reaction':'gift_received',
+          title:paidReaction?'تفاعل مدفوع جديد':'هدية جديدة',
+          body:paidReaction?`${user.display_name} تفاعل معاك بـ ${result.item.name}`:`${user.display_name} بعثلك ${result.item.name}`,
           data:{
             transactionId:result.transaction.id,
             itemId:result.item.id,
