@@ -364,7 +364,7 @@ export class ApiClient {
     const {sessionMode,...body}=input;
     return this.request<AuthSession>('/auth/register', {
       method: 'POST',
-      headers: sessionMode==='cookie' ? {'X-3AKSA-Session-Mode':'cookie'} : undefined,
+      ...(sessionMode==='cookie' ? {headers:{'X-3AKSA-Session-Mode':'cookie'}} : {}),
       body: JSON.stringify(body)
     });
   }
@@ -376,7 +376,7 @@ export class ApiClient {
     const {sessionMode,...body}=input;
     return this.request<AuthSession>('/auth/login', {
       method: 'POST',
-      headers: sessionMode==='cookie' ? {'X-3AKSA-Session-Mode':'cookie'} : undefined,
+      ...(sessionMode==='cookie' ? {headers:{'X-3AKSA-Session-Mode':'cookie'}} : {}),
       body: JSON.stringify(body)
     });
   }
