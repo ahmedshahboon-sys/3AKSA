@@ -111,6 +111,14 @@ jobs:
           corepack prepare pnpm@12.4.2 --activate
       - name: Install exact dependencies
         run: pnpm install --frozen-lockfile
+      - name: Verify release source
+        run: |
+          pnpm typecheck
+          node scripts/browser-fetch-contract.mjs
+          node scripts/android-release-contract.mjs
+          node scripts/android-startup-safety-contract.mjs
+          node scripts/check-visual-assets.mjs || bash scripts/prepare-visual-assets.sh
+
       - name: Build Android web assets
         run: pnpm --filter @3aksa/web build
       - name: Generate hardened Android project
@@ -153,8 +161,8 @@ jobs:
             --key-pass "pass:$ANDROID_KEY_PASSWORD" \
             --out "$OUTPUT" \
             "$ALIGNED"
-          "$APKSIGNER" verify --verbose --print-certs "$OUTPUT"
-          sha256sum "$OUTPUT" > "$OUTPUT.sha256"
+          "$APKSIGNER" verify --verbose --print-certs "$OUTPUT" | tee "$OUTPUT.cert.txt"
+          sha256sum "$OUTPUT" | tee "$OUTPUT.sha256"
           rm -f "$KEYSTORE" "$ALIGNED"
 
       - name: Upload signed APK
@@ -164,5 +172,6 @@ jobs:
           path: |
             3aksa-${{ inputs.version_name }}-${{ inputs.version_code }}.apk
             3aksa-${{ inputs.version_name }}-${{ inputs.version_code }}.apk.sha256
+            3aksa-${{ inputs.version_name }}-${{ inputs.version_code }}.apk.cert.txt
           if-no-files-found: error
           retention-days: 30
