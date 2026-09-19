@@ -20,38 +20,84 @@ function routeFromPayload(data:Record<string,unknown>){
   return '/notifications';
 }
 
+function debugOptionalNativeFailure(area:string,error:unknown){
+  if(import.meta.env.DEV)console.warn(`3AKSA optional native feature unavailable: ${area}`,error);
+}
+
 export async function initializeNativePush(onNavigate:(path:string)=>void){
   if(!isNativeAndroid()||pushInitialized)return;
-  await initializeRuntimeSecurity();
-  pushInitialized=true;
-  await PushNotifications.removeAllListeners();
-  await PushNotifications.addListener('registration',(token)=>{
-    void api.registerAndroidPush(getInstallationId(),token.value).catch(()=>undefined);
-  });
-  await PushNotifications.addListener('registrationError',()=>undefined);
-  await PushNotifications.addListener('pushNotificationActionPerformed',(action)=>{
-    onNavigate(routeFromPayload(action.notification.data??{}));
-  });
-  const current=await PushNotifications.checkPermissions();
-  const permission=current.receive==='prompt'||current.receive==='prompt-with-rationale'
-    ? await PushNotifications.requestPermissions()
-    : current;
-  if(permission.receive==='granted')await PushNotifications.register();
+  try{
+    await initializeRuntimeSecurity();
+    await PushNotifications.removeAllListeners();
+    await PushNotifications.addListener('registration',(token)=>{
+      try{
+        const installationId=getInstallationId();
+        void api.registerAndroidPush(installationId,token.value).catch(()=>undefined);
+      }catch(error){
+        debugOptionalNativeFailure('push-registration-identity',error);
+      }
+    });
+    await PushNotifications.addListener('registrationError',(error)=>{
+      debugOptionalNativeFailure('push-registration',error);
+    });
+    await PushNotifications.addListener('pushNotificationActionPerformed',(action)=>{
+      onNavigate(routeFromPayload(action.notification.data??{}));
+    });
+    const current=await PushNotifications.checkPermissions();
+    if(current.receive==='granted'){
+      await PushNotifications.register();
+    }
+  }catch(error){
+    // Push is optional. Missing Firebase/google-services or plugin/runtime failures
+    // must never block login, registration or the application shell.
+    debugOptionalNativeFailure('push-startup',error);
+  }finally{
+    pushInitialized=true;
+  }
+}
+
+export async function requestNativePushPermission(){
+  if(!isNativeAndroid())return 'unsupported' as const;
+  try{
+    await initializeRuntimeSecurity();
+    const current=await PushNotifications.checkPermissions();
+    const permission=current.receive==='prompt'||current.receive==='prompt-with-rationale'
+      ? await PushNotifications.requestPermissions()
+      : current;
+    if(permission.receive==='granted'){
+      await PushNotifications.register();
+      return 'granted' as const;
+    }
+    return permission.receive==='denied'?'denied' as const:'prompt' as const;
+  }catch(error){
+    debugOptionalNativeFailure('push-permission',error);
+    return 'unavailable' as const;
+  }
 }
 
 export async function initializeNativeAppLinks(onNavigate:(path:string)=>void){
   if(!isNativeAndroid()||appLinksInitialized)return;
-  appLinksInitialized=true;
-  await App.addListener('appUrlOpen',(event)=>{
-    try{const url=new URL(event.url);onNavigate(url.pathname.replace(/^\/3aksa/,'')||'/');}catch{/* invalid deep link */}
-  });
+  try{
+    await App.addListener('appUrlOpen',(event)=>{
+      try{const url=new URL(event.url);onNavigate(url.pathname.replace(/^\/3aksa/,'')||'/');}catch{/* invalid deep link */}
+    });
+  }catch(error){
+    debugOptionalNativeFailure('app-links',error);
+  }finally{
+    appLinksInitialized=true;
+  }
 }
 
 export async function nativeAppInfo(){
   if(!isNativeAndroid())return null;
-  const info=await App.getInfo();
-  const versionCode=Number.parseInt(info.build,10);
-  return {versionName:info.version,versionCode:Number.isFinite(versionCode)?versionCode:0};
+  try{
+    const info=await App.getInfo();
+    const versionCode=Number.parseInt(info.build,10);
+    return {versionName:info.version,versionCode:Number.isFinite(versionCode)?versionCode:0};
+  }catch(error){
+    debugOptionalNativeFailure('app-info',error);
+    return null;
+  }
 }
 
 export async function openExternalUrl(url:string){
