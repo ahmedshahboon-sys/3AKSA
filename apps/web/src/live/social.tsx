@@ -137,7 +137,7 @@ export function LiveProfileScreen(){
     <ScreenHeader title={profile?.displayName||'الملف الشخصي'} eyebrow={profile?'@'+profile.username:'Profile'} backTo="/"/>
     <LiveState loading={resource.loading} error={resource.error} empty={!profile}>
       {profile?<section className="profile-card">
-        <Avatar name={profile.displayName} gender={genderToUi(profile.gender)}/>
+        <Avatar name={profile.displayName} gender={genderToUi(profile.gender)} cosmetics={profile.cosmetics}/>
         <div className="grow"><h1>{profile.displayName}</h1><p>@{profile.username}{profile.bio?' · '+profile.bio:''}</p></div>
       </section>:null}
       {profile?<div className="live-form">
