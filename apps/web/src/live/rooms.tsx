@@ -18,6 +18,21 @@ type RoomTvState={
   selectedChannel?:TvChannel|null;
 };
 
+const entrySoundCooldown=new Map<string,number>();
+
+async function playEntrySound(code:string,userId:string){
+  const now=Date.now();
+  if(now-(entrySoundCooldown.get(userId)??0)<8_000)return;
+  entrySoundCooldown.set(userId,now);
+  try{
+    const prefs=(await api.notificationPreferences()).preferences;
+    if(prefs.sounds.muteAll||!prefs.sounds.rooms)return;
+    const audio=new Audio(api.storeAssetUrl(code));
+    audio.volume=.7;
+    await audio.play();
+  }catch{/* entry sounds are optional and must never break room presence */}
+}
+
 function upsertMessage(list:ChatMessage[],message:ChatMessage){
   const index=list.findIndex((item)=>item.id===message.id);
   if(index>=0){
@@ -151,6 +166,11 @@ export function LiveRoomChatScreen(){
     });
     const offDelete=realtime.on('room:message-deleted',(payload)=>{if(payload.roomId===roomId)setMessages((current)=>current.filter((item)=>item.id!==payload.messageId));});
     const offPresence=realtime.on('room:presence',(payload)=>{if(payload.roomId===roomId)setOnlineCount(payload.onlineCount);});
+    const offMemberJoined=realtime.on('room:member-joined',(payload)=>{
+      if(payload.roomId!==roomId)return;
+      const joined=payload.user as {id?:string;entrySoundCode?:string|null};
+      if(joined.entrySoundCode&&joined.id)void playEntrySound(joined.entrySoundCode,joined.id);
+    });
     const offReaction=realtime.on('room:reaction',(payload)=>{
       if(payload.roomId!==roomId)return;
       setMessages((current)=>current.map((item)=>item.id===payload.messageId?{...item,reactions:{like:{count:payload.count,reacted:item.reactions?.like.reacted??false}}}:item));
@@ -165,7 +185,7 @@ export function LiveRoomChatScreen(){
     void realtime.joinRoom(roomId).then((ack)=>{if(!ack.ok&&active)setActionError(readableError(new Error(String(ack.error??'REALTIME_ERROR'))));});
     return()=>{
       active=false;
-      offMessage();offDelete();offPresence();offReaction();offTv();
+      offMessage();offDelete();offPresence();offMemberJoined();offReaction();offTv();
       void realtime.leaveRoom(roomId);
     };
   },[roomId,resource.data]);
