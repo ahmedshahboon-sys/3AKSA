@@ -43,7 +43,7 @@ export function SectionTitle({ title, action, actionTo }: { title: string; actio
 
 export function Avatar({
   name,online=true,gender,cosmetics
-}:{name:string;online?:boolean;gender?:Gender;cosmetics?:UserCosmetics}){
+}:{name:string;online?:boolean;gender?:Gender;cosmetics?:UserCosmetics|undefined}){
   const frame=cosmetics?.frameCode?api.storeAssetUrl(cosmetics.frameCode):null;
   const badge=cosmetics?.badgeCode?api.storeAssetUrl(cosmetics.badgeCode):null;
   return (
