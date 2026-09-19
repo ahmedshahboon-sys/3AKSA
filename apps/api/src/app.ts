@@ -22,13 +22,14 @@ import { registerSocialRoutes } from './modules/social/routes.js';
 import { registerSuggestionRoutes } from './modules/social/suggestions.js';
 import { registerTvRoutes } from './modules/tv/routes.js';
 import { registerRequestRateLimits } from './request-rate-limits.js';
+import { registerHttpSecurity } from './security-http.js';
 
 export async function buildApp() {
   const app = Fastify({
     logger: {
       level: env.NODE_ENV === 'production' ? 'info' : 'debug'
     },
-    trustProxy: false,
+    trustProxy: ['127.0.0.1','::1'],
     bodyLimit: 64 * 1024
   });
 
@@ -37,6 +38,7 @@ export async function buildApp() {
     await db.end();
   });
 
+  registerHttpSecurity(app);
   registerRequestRateLimits(app);
 
   await registerHealthRoutes(app, {
