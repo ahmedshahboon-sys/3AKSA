@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticateRequest } from '../auth/session.js';
 import { openStoredFile } from '../../storage.js';
 import { createNotification } from '../notifications/service.js';
+import { featureEnabled } from '../features/service.js';
 import { formatLydFromMilli } from './service.js';
 import {
   equipOwnedItem,
@@ -49,14 +50,17 @@ export async function registerStoreRoutes(app:FastifyInstance,options:{basePath:
   });
 
   app.get<{Querystring:ItemQuery}>(`${prefix}/items`,async(request,reply)=>{
+    if(!(await featureEnabled('store').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user=await requireUser(request,reply);
     if(!user) return;
     const type=request.query.type?.trim();
     if(type && !ITEM_TYPES.has(type)) return reply.code(400).send({error:'INVALID_ITEM_TYPE'});
+    const paidEnabled=await featureEnabled('paid_features').catch(()=>false);
+    if(type&&(type==='gift'||type==='reaction')&&!paidEnabled)return reply.send({items:[]});
     const items=type
       ? await listStoreItems(type as 'frame'|'entry_sound'|'theme'|'sticker_pack'|'badge'|'gift'|'reaction')
       : await listStoreItems();
-    return reply.send({items});
+    return reply.send({items:paidEnabled?items:items.filter(item=>item.type!=='gift'&&item.type!=='reaction')});
   });
 
   app.get(`${prefix}/inventory`,async(request,reply)=>{
@@ -87,6 +91,7 @@ export async function registerStoreRoutes(app:FastifyInstance,options:{basePath:
   });
 
   app.post<{Body:PurchaseBody}>(`${prefix}/purchases`,async(request,reply)=>{
+    if(!(await featureEnabled('store').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user=await requireUser(request,reply);
     if(!user) return;
     const code=request.body.code?.trim() ?? '';
@@ -124,6 +129,7 @@ export async function registerStoreRoutes(app:FastifyInstance,options:{basePath:
   });
 
   app.post<{Body:GiftBody}>(`${options.basePath}/gifts/send`,async(request,reply)=>{
+    if(!(await featureEnabled('paid_features').catch(()=>false)))return reply.code(503).send({error:'FEATURE_DISABLED'});
     const user=await requireUser(request,reply);
     if(!user) return;
     const recipientUsername=request.body.recipientUsername?.trim() ?? '';
