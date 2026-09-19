@@ -76,7 +76,7 @@ export function LiveAccountScreen(){
   return (
     <main className="page-shell">
       <section className="profile-card">
-        <Avatar name={profile?.displayName||user?.displayName||'م'} gender={genderToUi(user?.gender)}/>
+        <Avatar name={profile?.displayName||user?.displayName||'م'} gender={genderToUi(user?.gender)} cosmetics={profile?.cosmetics}/>
         <div className="grow"><h1>{profile?.displayName||user?.displayName} <span className="gender-symbol">{user?.gender==='girl'?'♀':'♂'}</span></h1><p>@{user?.username}{profile?.bio?' · '+profile.bio:''}</p></div>
         <button className="secondary-button" type="button" onClick={()=>setEditing((v)=>!v)}>تعديل</button>
       </section>
