@@ -13,7 +13,7 @@ type SessionContextValue={
   offline:boolean;
   login:(input:{login:string;password:string})=>Promise<void>;
   register:(input:{
-    username:string;displayName:string;phone:string;gender:Gender;password:string;
+    username:string;displayName:string;phone:string;gender:Gender;password:string;ownerClaimCode?:string;
   })=>Promise<void>;
   logout:()=>Promise<void>;
   refresh:()=>Promise<void>;
@@ -83,7 +83,7 @@ export function SessionProvider({children}:{children:ReactNode}){
   },[]);
 
   const register=useCallback(async(input:{
-    username:string;displayName:string;phone:string;gender:Gender;password:string;
+    username:string;displayName:string;phone:string;gender:Gender;password:string;ownerClaimCode?:string;
   })=>{
     await initializeRuntimeSecurity();
     const platform=getPlatform();

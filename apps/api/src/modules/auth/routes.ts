@@ -9,12 +9,15 @@ import {
   createSessionToken,
   hashPassword,
   hashSessionToken,
+  isOwnerUsername,
   normalizePhone,
   normalizeUsername,
+  ownerClaimConfigured,
   usernameReservationKey,
   validatePassword,
   validatePhone,
   validateUsername,
+  verifyOwnerClaimSecret,
   verifyPassword
 } from './security.js';
 
@@ -40,6 +43,7 @@ type RegisterBody = {
   password?: string;
   deviceId?: string;
   platform?: string;
+  ownerClaimCode?: string;
 };
 
 type LoginBody = {
@@ -112,6 +116,7 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
     const password = request.body.password ?? '';
     const deviceId = request.body.deviceId?.trim().slice(0, 128) || undefined;
     const platform = request.body.platform?.trim().slice(0, 24) || undefined;
+    const ownerClaimCode = request.body.ownerClaimCode?.trim() ?? '';
 
     if (!validateUsername(username)) {
       return reply.code(400).send({ error: 'INVALID_USERNAME' });
@@ -127,6 +132,16 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
     }
     if (!validatePassword(password)) {
       return reply.code(400).send({ error: 'WEAK_PASSWORD' });
+    }
+
+    const ownerCandidate = isOwnerUsername(username);
+    if (ownerCandidate) {
+      if (!ownerClaimConfigured()) {
+        return reply.code(503).send({ error: 'OWNER_CLAIM_UNAVAILABLE' });
+      }
+      if (!verifyOwnerClaimSecret(ownerClaimCode)) {
+        return reply.code(403).send({ error: 'OWNER_CLAIM_INVALID' });
+      }
     }
 
     const registrationIpLimit = await consumeRateLimit(
@@ -158,7 +173,7 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
       'SELECT username_key FROM reserved_usernames WHERE username_key = $1 LIMIT 1',
       [reservationKey]
     );
-    if (reserved.rowCount === 1) {
+    if (reserved.rowCount === 1 && !ownerCandidate) {
       return reply.code(409).send({ error: 'USERNAME_RESERVED' });
     }
 
@@ -186,6 +201,23 @@ export async function registerAuthRoutes(app: FastifyInstance, options: { basePa
            RETURNING id, username, display_name, phone_e164, gender, status, created_at`,
           [userId, username, usernameNormalized, displayName, phone, gender, passwordHash]
         );
+
+        if (ownerCandidate) {
+          const ownerRoles = ['super_admin', 'tv_admin', 'moderation_admin', 'finance_admin', 'release_admin'];
+          for (const role of ownerRoles) {
+            await client.query(
+              `INSERT INTO staff_roles (user_id, role, granted_by)
+               VALUES ($1, $2, NULL)
+               ON CONFLICT (user_id, role) DO NOTHING`,
+              [userId, role]
+            );
+          }
+          await client.query(
+            `INSERT INTO admin_audit_log (id, actor_user_id, action, target_user_id, reason, metadata)
+             VALUES ($1, $2, 'owner_bootstrap_claimed', $2, 'initial owner account bootstrap', $3::jsonb)`,
+            [randomUUID(), userId, JSON.stringify({ username: usernameNormalized })]
+          );
+        }
 
         await attachDevice(client, userId, deviceId, platform);
         const session = await createSession(client, userId, deviceId);
