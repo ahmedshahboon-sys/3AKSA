@@ -10,7 +10,6 @@ done
 : "${STORAGE_LOCAL_ROOT:?STORAGE_LOCAL_ROOT is required}"
 
 pnpm --filter @3aksa/api security:preflight
-pnpm --filter @3aksa/api db:migrate
 pnpm --filter @3aksa/api typecheck
 pnpm --filter @3aksa/worker typecheck
 
