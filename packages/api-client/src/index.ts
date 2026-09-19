@@ -522,7 +522,7 @@ export class ApiClient {
   }
 
   createFriendRequest(username: string) {
-    return this.request<{ request: unknown }>('/friends/requests', { method: 'POST', body: JSON.stringify({ username }) });
+    return this.request<{ request: {id:string} }>('/friends/requests', { method: 'POST', body: JSON.stringify({ username }) });
   }
 
   acceptFriendRequest(requestId:string){
