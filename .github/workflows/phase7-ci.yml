@@ -36,6 +36,9 @@ jobs:
       - name: Typecheck shared application
         run: pnpm typecheck
 
+      - name: Verify browser fetch receiver contract
+        run: node scripts/browser-fetch-contract.mjs
+
       - name: Build Web/PWA
         run: pnpm --filter @3aksa/web build
 
