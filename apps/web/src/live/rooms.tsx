@@ -270,7 +270,7 @@ export function LiveRoomChatScreen(){
 
   if(resource.loading)return <main className="page-shell"><div className="live-loading">جاري دخول الغرفة...</div></main>;
   if(resource.error||!resource.data)return <main className="page-shell"><ScreenHeader title="الغرفة" backTo="/rooms"/><div className="live-error">{resource.error||'تعذر فتح الغرفة'}</div></main>;
-  const {room,channels}=resource.data;
+  const {room,channels,stickers,reactions:paidReactions}=resource.data;
   const canManageTv=Boolean(tv?.canManage||room.viewerRole==='owner'||room.viewerRole==='moderator');
 
   return (
@@ -309,7 +309,7 @@ export function LiveRoomChatScreen(){
                 ):<div className="message-bubble">{message.text||''}</div>}
                 <div className="message-actions">
                   <button type="button" className={message.reactions?.like.reacted?'active':''} onClick={()=>void toggleLike(message)}>❤️ {message.reactions?.like.count??0}</button>
-                  {!mine?resource.data.reactions.slice(0,3).map(item=><button type="button" key={item.id} onClick={()=>void paidReaction(message,item)}>{item.name} · {(item.priceMilli/1000).toFixed(3)}</button>):null}
+                  {!mine?paidReactions.slice(0,3).map(item=><button type="button" key={item.id} onClick={()=>void paidReaction(message,item)}>{item.name} · {(item.priceMilli/1000).toFixed(3)}</button>):null}
                   {(mine||room.viewerRole!=='viewer')?<button type="button" onClick={()=>void removeMessage(message.id)}>حذف</button>:null}
                   {!mine&&message.sender?.username?<><Link className="link-reset" to={'/profiles/'+encodeURIComponent(message.sender.username)}>الملف</Link><Link className="link-reset" to={'/profiles/'+encodeURIComponent(message.sender.username)+'?report=1'}>بلاغ</Link><button type="button" onClick={()=>void blockRoomMember(message.sender!.username)}>حظر</button></>:null}
                 </div>
@@ -319,7 +319,7 @@ export function LiveRoomChatScreen(){
         }):<div className="empty-state-inline">ابدأ أول رسالة في الغرفة 👋</div>}
       </section>
 
-      {resource.data.stickers.length?<div className="sticker-picker" aria-label="الملصقات">{resource.data.stickers.map((sticker,index)=><button type="button" key={sticker+index} onClick={()=>setComposer(current=>(current?current+' ':'')+sticker)}>{sticker}</button>)}</div>:null}
+      {stickers.length?<div className="sticker-picker" aria-label="الملصقات">{stickers.map((sticker,index)=><button type="button" key={sticker+index} onClick={()=>setComposer(current=>(current?current+' ':'')+sticker)}>{sticker}</button>)}</div>:null}
       <form className="chat-composer live-composer" onSubmit={sendText}>
         <input value={composer} onChange={(e)=>setComposer(e.target.value)} maxLength={2000} aria-label="نص الرسالة" placeholder="اكتب حاجة..." />
         <VoiceRecorderButton disabled={sending} onReady={sendVoice}/>
