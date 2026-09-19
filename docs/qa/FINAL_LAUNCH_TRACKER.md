@@ -155,7 +155,7 @@ Closure:
 - Production migration/asset storage/two-account economy behavior remains external.
 
 ### GROUP 6 — PWA / APK / PUSH / DISTRIBUTION
-Status: **IN PROGRESS**
+Status: **BLOCKED_EXTERNAL** (code/CI complete; signing secrets and production install proof remain external)
 
 Changes:
 - Added server-side APK storage validation, 64MB limit, APK/ZIP manifest check, random storage key and server-computed SHA-256.
@@ -167,14 +167,32 @@ Changes:
 - Existing Web Push VAPID and Android FCM providers remain optional; missing credentials do not break Core.
 - Added `tests/group6-distribution.test.mjs`.
 
-Pending:
-- Full CI/CodeQL/Android RC on Group 6 PR.
+Closure:
+- PR #26 merged to develop at `d13d1787cc635138c5e6d70181ea38f9e21fe5df`.
+- Phase 1–11 applicable CI, CodeQL, Phase 7 debug APK and Android Release Candidate: PASS.
 - Official Android signing secrets availability is external.
 - Real VAPID/FCM credentials are external and optional for Core.
 - Production install/download behavior remains external.
 
 ### GROUP 7 — PRIVACY / SETTINGS / I18N / TELEMETRY / FEATURE FLAGS
-Status: **NOT STARTED**
+Status: **IN PROGRESS**
+
+Changes:
+- Added public Privacy Policy, Terms, About and Support pages available before login.
+- Added persisted Arabic/English language preference and a real English auth/shell navigation path.
+- Added privacy settings for profile visibility and explicit Nearby consent; friends-only visibility is enforced server-side.
+- Added self-service account deletion with current-password verification, strong DELETE confirmation, username reservation, known-installation blocking, session revocation, push disable and owner-account protection.
+- Added server-driven Feature Flags for TV, Store, paid features, Telemetry and Push with safe OFF defaults when flag state cannot be loaded.
+- Feature flags now gate TV, Store/Purchases, paid gifts/reactions and Push APIs while leaving Core auth/chat available.
+- Added bounded client Telemetry queue (max 50), ~15 minute best-effort sync and React/window error capture.
+- Telemetry backend accepts a strict technical-context whitelist only, strips query/fragment from routes, rate-limits ingest and retains events for no more than 24 hours.
+- Worker now deletes expired Telemetry in the same cleanup cycle as ephemeral messages/notifications.
+- Added MFA/rate-limited Admin Feature Flag controls and aggregated 24h Telemetry dashboard.
+- Added migration `0022_privacy_observability_flags.sql` and `tests/group7-privacy-observability.test.mjs`.
+
+Pending:
+- Full typecheck/build/integration/CodeQL/Android RC on Group 7 PR.
+- Production migration/worker/privacy behavior remains external.
 
 ### GROUP 8 — UX / ACCESSIBILITY / RESPONSIVE / RESILIENCE
 Status: **NOT STARTED**
