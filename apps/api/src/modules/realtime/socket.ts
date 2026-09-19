@@ -6,6 +6,7 @@ import { closeRedis } from '../../redis.js';
 import { consumeRateLimit } from '../../rate-limit.js';
 import { normalizeVoiceBinary } from '../../storage.js';
 import { authenticateToken, touchSessionToken, type AuthenticatedUser } from '../auth/session.js';
+import { sessionCookieTokenFromHeader } from '../auth/cookie.js';
 import { normalizeUsername } from '../auth/security.js';
 import { prayerEvents } from '../prayer/events.js';
 import { notificationEvents } from '../notifications/events.js';
@@ -183,9 +184,10 @@ export function attachRealtime(app: FastifyInstance) {
 
   io.use(async (socket, next) => {
     try {
-      const accessToken = typeof socket.handshake.auth?.accessToken === 'string'
+      const bearer = typeof socket.handshake.auth?.accessToken === 'string'
         ? socket.handshake.auth.accessToken.trim()
         : '';
+      const accessToken = bearer || sessionCookieTokenFromHeader(socket.request.headers.cookie) || '';
       if (!accessToken) return next(new Error('UNAUTHORIZED'));
       const user = await authenticateToken(accessToken);
       if (!user) return next(new Error('UNAUTHORIZED'));
