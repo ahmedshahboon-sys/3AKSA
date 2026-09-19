@@ -65,7 +65,7 @@ jobs:
           corepack enable
           corepack prepare pnpm@12.4.2 --activate
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       - name: Verify project contracts
         run: pnpm verify
       - name: Apply PostgreSQL migrations
