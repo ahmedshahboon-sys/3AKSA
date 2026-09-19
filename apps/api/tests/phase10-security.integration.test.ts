@@ -10,19 +10,21 @@ function cookiePair(setCookie:string|string[]|undefined){
   return raw.split(';',1)[0]!;
 }
 
-test('Phase 10 browser auth uses HttpOnly cookie, CSRF origin checks and security headers',async()=>{
+test('Phase 10 browser cookie auth, CSRF hardening and native bearer auth',async()=>{
   const app=await buildApp();
   const suffix=randomUUID().replaceAll('-','').slice(0,8);
-  const username=`p10_web_${suffix}`;
+  const webUser=`p10_web_${suffix}`;
+  const androidUser=`p10_android_${suffix}`;
+  const phoneSeed=String(parseInt(suffix,16)).padStart(8,'0').slice(-8);
   try{
     const register=await app.inject({
       method:'POST',
       url:'/3aksa/api/auth/register',
       headers:{'x-3aksa-session-mode':'cookie'},
       payload:{
-        username,
+        username:webUser,
         displayName:'Phase 10 Web',
-        phone:`+21891${String(parseInt(suffix,16)).padStart(8,'0').slice(-8)}`,
+        phone:`+21891${phoneSeed}`,
         gender:'boy',
         password:'StrongPass123!',
         deviceId:`phase10-web-${suffix}`,
@@ -45,7 +47,7 @@ test('Phase 10 browser auth uses HttpOnly cookie, CSRF origin checks and securit
       headers:{cookie}
     });
     assert.equal(me.statusCode,200,me.body);
-    assert.equal(me.json<{user:{username:string}}>().user.username,username);
+    assert.equal(me.json<{user:{username:string}}>().user.username,webUser);
     assert.equal(me.headers['x-content-type-options'],'nosniff');
     assert.equal(me.headers['x-frame-options'],'DENY');
     assert.match(String(me.headers['content-security-policy']),/default-src 'none'/);
@@ -81,42 +83,32 @@ test('Phase 10 browser auth uses HttpOnly cookie, CSRF origin checks and securit
       headers:{cookie}
     });
     assert.equal(expired.statusCode,401,expired.body);
-  }finally{
-    await query('DELETE FROM users WHERE username=$1',[username]).catch(()=>undefined);
-    await app.close();
-  }
-});
 
-test('Phase 10 bearer auth remains usable for native clients without browser Origin',async()=>{
-  const app=await buildApp();
-  const suffix=randomUUID().replaceAll('-','').slice(0,8);
-  const username=`p10_android_${suffix}`;
-  try{
-    const register=await app.inject({
+    const androidRegister=await app.inject({
       method:'POST',
       url:'/3aksa/api/auth/register',
       payload:{
-        username,
+        username:androidUser,
         displayName:'Phase 10 Android',
-        phone:`+21892${String(parseInt(suffix,16)).padStart(8,'0').slice(-8)}`,
+        phone:`+21892${phoneSeed}`,
         gender:'boy',
         password:'StrongPass123!',
         deviceId:`android:${suffix.repeat(8).slice(0,64)}`,
         platform:'android'
       }
     });
-    assert.equal(register.statusCode,201,register.body);
-    const token=register.json<{accessToken:string|null}>().accessToken;
+    assert.equal(androidRegister.statusCode,201,androidRegister.body);
+    const token=androidRegister.json<{accessToken:string|null}>().accessToken;
     assert.ok(token);
 
-    const logout=await app.inject({
+    const androidLogout=await app.inject({
       method:'POST',
       url:'/3aksa/api/auth/logout',
       headers:{authorization:`Bearer ${token}`}
     });
-    assert.equal(logout.statusCode,204,logout.body);
+    assert.equal(androidLogout.statusCode,204,androidLogout.body);
   }finally{
-    await query('DELETE FROM users WHERE username=$1',[username]).catch(()=>undefined);
+    await query('DELETE FROM users WHERE username=ANY($1::text[])',[[webUser,androidUser]]).catch(()=>undefined);
     await app.close();
   }
 });
