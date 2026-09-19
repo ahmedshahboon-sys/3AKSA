@@ -266,8 +266,26 @@ External closure required:
 - Complete PWA install checks on Android and iOS.
 - Close every P0/P1 before Group 12 launch approval.
 
+Source/CI closure:
+- PR #31 merged to develop at `e0f9b7cb17c174d0c1dd10c8a19297bd5da448e9`.
+- All applicable Phase CI, Phase 9 QA, CodeQL Security and Android Release Candidate: PASS.
+- Group remains `BLOCKED_EXTERNAL` only for the real Production/device evidence above.
+
 ### GROUP 12 — RELEASE CLOSURE & PUBLIC BETA
-Status: **NOT STARTED**
+Status: **BLOCKED_EXTERNAL** (source release package prepared; Public Beta requires Production/signing/physical evidence)
+
+Source-side changes:
+- Added 1.0.1 / versionCode 2 Public Beta release-candidate notes with explicit NOT RELEASED status.
+- Added a go/no-go Public Beta checklist covering source CI, Production health/readiness, owner MFA/bootstrap closure, signed APK proof, physical two-account QA, optional feature flags and rollback conditions.
+- Added `scripts/release/source-beta-gate.mjs` and root `release:source-gate` command to verify source release prerequisites without pretending external gates are complete.
+- Added `tests/group12-release-closure.test.mjs`.
+- Trusted Release remains the only accepted public Android signing path and retains APK SHA-256 plus signing-certificate proof.
+
+External closure required:
+- Complete Group 10 real Production evidence.
+- Complete Group 11 real physical-device/two-account evidence.
+- Execute Trusted Release with official signing secrets and verify the signed APK/install-update path.
+- Keep the release PR to `main` Draft/unmerged until all checklist sections A–F are complete and no P0/P1 remains.
 
 ## Rule
 A group is never marked DONE from file existence alone. Launch-critical behavior requires automated proof and, where specified, production/physical-device evidence.
