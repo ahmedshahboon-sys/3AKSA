@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { apiBasePath, env } from './config.js';
 import { db } from './db.js';
+import { closeRedis } from './redis.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
 import { registerAdminRoutes } from './modules/admin/routes.js';
 import { registerEconomyRoutes } from './modules/economy/routes.js';
@@ -32,6 +33,7 @@ export async function buildApp() {
   });
 
   app.addHook('onClose', async () => {
+    await closeRedis();
     await db.end();
   });
 
