@@ -112,6 +112,10 @@ jobs:
           cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/zipalign" release-candidate/build-tools/
           cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" release-candidate/build-tools/
           cp "$ANDROID_HOME/build-tools/$BUILD_TOOLS/lib/apksigner.jar" release-candidate/build-tools/lib/
+          mkdir -p release-candidate/build-tools/runtime-libs
+          ldd "$ANDROID_HOME/build-tools/$BUILD_TOOLS/zipalign" | awk '/=> \/.+ \(0x/{print $3}' | while read -r lib; do
+            cp -L "$lib" release-candidate/build-tools/runtime-libs/
+          done
           chmod +x release-candidate/build-tools/zipalign release-candidate/build-tools/apksigner
           printf '%s\n' "$BUILD_TOOLS" > release-candidate/build-tools-version.txt
           sha256sum release-candidate/3aksa-1.0.0-1-unsigned.apk > release-candidate/3aksa-1.0.0-1-unsigned.apk.sha256
