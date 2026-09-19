@@ -29,3 +29,8 @@ must(playlist,'MAX_PLAYLIST_BYTES','playlist size guard');
 must(playlist,'MAX_PLAYLIST_CHANNELS','playlist channel limit');
 
 console.log('Group 4 rooms and TV admin contract passed.');
+
+// Security regression: manager snapshot is authenticated and independently rate-limited.
+const roomRoutes=read('apps/api/src/modules/rooms/routes.ts');
+must(roomRoutes,"'room-management-read'",'room management rate limit');
+must(roomRoutes,'consumeRateLimit','room management limiter call');
