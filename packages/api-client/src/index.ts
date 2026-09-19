@@ -94,12 +94,19 @@ export type TvImportBatch = {
   createdAt:string;
 };
 
+export type UserCosmetics={
+  frameCode:string|null;
+  badgeCode:string|null;
+  badgeName:string|null;
+};
+
 export type Profile = {
   id: string;
   username: string;
   displayName: string;
   gender: Gender;
   bio: string | null;
+  cosmetics?:UserCosmetics;
 };
 
 export type FriendRequest = {
@@ -120,6 +127,7 @@ export type NearbyPerson = {
   bio: string | null;
   distanceKmApprox: number;
   distanceLabel: string;
+  cosmetics?:UserCosmetics;
 };
 
 export type PrivatePeer = {
@@ -127,6 +135,7 @@ export type PrivatePeer = {
   username: string;
   displayName: string;
   gender: Gender;
+  cosmetics?:UserCosmetics;
 };
 
 export type PrivateConversation = {
@@ -152,7 +161,7 @@ export type ChatMessage = {
   type?: 'text' | 'voice';
   text?: string | null;
   textContent?: string | null;
-  sender?: { id?: string; username: string; displayName: string; gender?: Gender };
+  sender?: { id?: string; username: string; displayName: string; gender?: Gender; cosmetics?:UserCosmetics };
   senderId?: string;
   createdAt: string;
   expiresAt: string;
