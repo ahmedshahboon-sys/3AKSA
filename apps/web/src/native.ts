@@ -3,7 +3,7 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
-import { api, getInstallationId } from './runtime';
+import { api, getInstallationId, initializeRuntimeSecurity } from './runtime';
 
 let pushInitialized=false;
 let appLinksInitialized=false;
@@ -22,6 +22,7 @@ function routeFromPayload(data:Record<string,unknown>){
 
 export async function initializeNativePush(onNavigate:(path:string)=>void){
   if(!isNativeAndroid()||pushInitialized)return;
+  await initializeRuntimeSecurity();
   pushInitialized=true;
   await PushNotifications.removeAllListeners();
   await PushNotifications.addListener('registration',(token)=>{
