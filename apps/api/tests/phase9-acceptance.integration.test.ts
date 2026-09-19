@@ -37,7 +37,7 @@ async function setNearby(
   longitude:number
 ){
   const enabled=await app.inject({
-    method:'PATCH',url:'/3aksa/api/profile/me',headers:auth(token),payload:{nearbyEnabled:true}
+    method:'PATCH',url:'/3aksa/api/profile/me',headers:auth(token),payload:{nearbyEnabled:true,nearbyConsent:true}
   });
   assert.equal(enabled.statusCode,200,enabled.body);
   const location=await app.inject({
