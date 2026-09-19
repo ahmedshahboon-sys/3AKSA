@@ -30,6 +30,7 @@ test('Group 5 admin store requires MFA and audits writes',()=>{
     'store_item_retired',
     'store_item_asset_uploaded',
     'admin-store-list','admin-store-create','admin-store-update','admin-store-retire','admin-store-asset',
+    'admin-store-list-ip','admin-store-create-ip','admin-store-update-ip','admin-store-retire-ip','admin-store-asset-ip',
     'consumeRateLimit'
   ])assert.ok(source.includes(fragment),fragment);
 });
