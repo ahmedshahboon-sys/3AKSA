@@ -15,6 +15,7 @@ type SessionContextValue={
   register:(input:{
     username:string;displayName:string;phone:string;gender:Gender;password:string;ownerClaimCode?:string;
   })=>Promise<void>;
+  recover:(input:{requestId:string;recoveryCode:string;newPassword:string})=>Promise<void>;
   logout:()=>Promise<void>;
   refresh:()=>Promise<void>;
 };
@@ -99,14 +100,29 @@ export function SessionProvider({children}:{children:ReactNode}){
     setStatus('authenticated');
   },[]);
 
+  const recover=useCallback(async(input:{requestId:string;recoveryCode:string;newPassword:string})=>{
+    await initializeRuntimeSecurity();
+    const platform=getPlatform();
+    const session=await api.confirmPasswordRecovery({
+      ...input,
+      deviceId:getInstallationId(),
+      platform,
+      sessionMode:platform==='web'?'cookie':'bearer'
+    });
+    await saveSession(session);
+    setUser(session.user);
+    setOffline(false);
+    setStatus('authenticated');
+  },[]);
+
   const logout=useCallback(async()=>{
     try{await api.logout();}catch{/* local logout must still succeed */}
     clear();
   },[clear]);
 
   const value=useMemo<SessionContextValue>(()=>({
-    status,user,offline,login,register,logout,refresh
-  }),[status,user,offline,login,register,logout,refresh]);
+    status,user,offline,login,register,recover,logout,refresh
+  }),[status,user,offline,login,register,recover,logout,refresh]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
