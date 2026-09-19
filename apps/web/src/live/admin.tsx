@@ -76,7 +76,8 @@ export function LiveAdminScreen(){
     event.preventDefault();if(!unlockedCode)return;
     setBusy(true);setError('');
     try{
-      const result=await api.adminUsers(unlockedCode,{search:search.trim()||undefined,limit:100});
+      const query=search.trim();
+      const result=await api.adminUsers(unlockedCode,{...(query?{search:query}:{}),limit:100});
       setData((current)=>current?{...current,users:result.users}:current);
     }catch(err){setError(readableError(err));}finally{setBusy(false);}
   }
@@ -130,7 +131,7 @@ export function LiveAdminScreen(){
     catch(err){setError(readableError(err));}finally{setBusy(false);}
   }
 
-  if(me.loading)return <main className="page-shell"><LiveState loading error="" empty={false}/></main>;
+  if(me.loading)return <main className="page-shell"><div className="boot-loader" role="status">جاري فتح لوحة الإدارة...</div></main>;
   if(me.error||!me.data){
     return <main className="page-shell"><ScreenHeader title="لوحة الإدارة" backTo="/account"/><div className="live-error">هذه الصفحة مخصصة للإدارة.</div></main>;
   }
