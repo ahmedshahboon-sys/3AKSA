@@ -5,6 +5,7 @@ import { authenticateRequest, type AuthenticatedUser } from '../auth/session.js'
 import { normalizeUsername } from '../auth/security.js';
 import { tvEvents } from '../tv/events.js';
 import { roomTvBroadcastState } from '../tv/service.js';
+import { roomPresenceCounts, roomPresenceSnapshot } from '../realtime/presence.js';
 
 type RoomVisibility = 'public' | 'private';
 type RoomGenderPolicy = 'everyone' | 'boys' | 'girls';
@@ -68,7 +69,7 @@ async function requireUser(request: FastifyRequest, reply: FastifyReply) {
   return user;
 }
 
-function roomDto(room: RoomRow, viewer?: AuthenticatedUser | null) {
+function roomDto(room: RoomRow, viewer?: AuthenticatedUser | null, onlineCount?: number) {
   const role = viewer?.id === room.owner_id ? 'owner' : room.is_moderator ? 'moderator' : 'viewer';
   return {
     id: room.id,
@@ -87,6 +88,7 @@ function roomDto(room: RoomRow, viewer?: AuthenticatedUser | null) {
       username: room.owner_username,
       displayName: room.owner_display_name
     },
+    onlineCount: onlineCount ?? 0,
     createdAt: room.created_at,
     updatedAt: room.updated_at
   };
@@ -218,7 +220,10 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
       params
     );
 
-    return reply.send({ rooms: result.rows.map((room) => roomDto(room, viewer)) });
+    const counts = await roomPresenceCounts(result.rows.map((room) => room.id));
+    return reply.send({
+      rooms: result.rows.map((room) => roomDto(room, viewer, counts.get(room.id) ?? 0))
+    });
   });
 
   app.post<{ Body: RoomCreateBody }>(prefix, async (request, reply) => {
@@ -254,7 +259,8 @@ export async function registerRoomRoutes(app: FastifyInstance, options: { basePa
     const viewer = await authenticateRequest(request);
     const room = await lookupRoom(request.params.roomId, viewer?.id);
     if (!room || !canViewRoom(room, viewer)) return reply.code(404).send({ error: 'ROOM_NOT_FOUND' });
-    return reply.send({ room: roomDto(room, viewer) });
+    const presence = await roomPresenceSnapshot(room.id);
+    return reply.send({ room: roomDto(room, viewer, presence.onlineCount) });
   });
 
   app.patch<{ Params: { roomId: string }; Body: RoomPatchBody }>(`${prefix}/:roomId`, async (request, reply) => {

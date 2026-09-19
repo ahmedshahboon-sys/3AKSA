@@ -25,7 +25,7 @@ for (const label of navLabels) {
   previousNavIndex = currentIndex;
 }
 
-for (const route of ['/rooms/:roomId', '/private/:userId', '/wallet', '/store', '/tv', '/notifications']) {
+for (const route of ['/rooms/:roomId', '/private/:conversationId', '/private/new/:username', '/wallet', '/store', '/tv', '/notifications']) {
   mustContain(app, route, 'Phase 1 route');
 }
 

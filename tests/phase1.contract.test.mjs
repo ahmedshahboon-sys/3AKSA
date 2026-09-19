@@ -35,7 +35,7 @@ test('V1 exposes text and voice notes without calls or camera', () => {
 });
 
 test('required Phase 1 visual routes exist', () => {
-  for (const route of ['/rooms/:roomId', '/private/:userId', '/wallet', '/store', '/tv', '/notifications']) {
+  for (const route of ['/rooms/:roomId', '/private/:conversationId', '/private/new/:username', '/wallet', '/store', '/tv', '/notifications']) {
     assert.ok(app.includes(route), `missing route ${route}`);
   }
 });
