@@ -17,22 +17,24 @@ import { LivePrayerSettingsScreen } from './live/prayer';
 import { LiveRealtimeEffects } from './live/realtimeEffects';
 import { PwaLifecycle } from './live/pwaLifecycle';
 import { PublicInstallScreen } from './live/install';
+import { PublicLegalScreen } from './live/legal';
+import { getLanguage,t } from './i18n';
 import { LiveReleaseAdminScreen } from './live/releaseAdmin';
 import { LiveAdminScreen } from './live/admin';
 import { LiveAdminStoreScreen } from './live/storeAdmin';
 import { LiveFriendsScreen,LiveProfileScreen } from './live/social';
 
-const navItems = [
-  { label: 'الرئيسية', path: '/', icon: 'home' as const },
-  { label: 'الغرف', path: '/rooms', icon: 'rooms' as const },
-  { label: 'القريبون', path: '/nearby', icon: 'nearby' as const },
-  { label: 'الخاص', path: '/private', icon: 'private' as const },
-  { label: 'حسابي', path: '/account', icon: 'account' as const },
-];
-
 function BottomNavigation() {
+  const language=getLanguage();
+  const navItems=[
+    {label:t('home',language),path:'/',icon:'home' as const},
+    {label:t('rooms',language),path:'/rooms',icon:'rooms' as const},
+    {label:t('nearby',language),path:'/nearby',icon:'nearby' as const},
+    {label:t('private',language),path:'/private',icon:'private' as const},
+    {label:t('account',language),path:'/account',icon:'account' as const}
+  ];
   return (
-    <nav className="bottom-nav" aria-label="التنقل الرئيسي">
+    <nav className="bottom-nav" aria-label={language==='ar'?'التنقل الرئيسي':'Main navigation'}>
       {navItems.map((item) => (
         <NavLink key={item.path} to={item.path} end={item.path === '/'} className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
           <Icon name={item.icon} size={22} />
@@ -83,9 +85,13 @@ function AppShell() {
 export function App() {
   const { status } = useSession();
   const location = useLocation();
-  if (location.pathname === '/download') return <PublicInstallScreen />;
-  if (status === 'loading') {
-    return <main className="auth-page"><div className="boot-loader" role="status">جاري فتح عكسة...</div></main>;
+  if(location.pathname==='/download')return <PublicInstallScreen/>;
+  if(location.pathname==='/privacy')return <PublicLegalScreen kind="privacy"/>;
+  if(location.pathname==='/terms')return <PublicLegalScreen kind="terms"/>;
+  if(location.pathname==='/about')return <PublicLegalScreen kind="about"/>;
+  if(location.pathname==='/support')return <PublicLegalScreen kind="support"/>;
+  if(status==='loading'){
+    return <main className="auth-page"><div className="boot-loader" role="status">{t('opening')}</div></main>;
   }
   if (status === 'anonymous') return <AuthScreen />;
   return <AppShell />;
