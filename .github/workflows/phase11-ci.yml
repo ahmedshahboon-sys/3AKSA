@@ -41,7 +41,7 @@ jobs:
 
       - name: Validate Compose model
         env:
-          THREEAKSA_ENV_FILE: .env.example
+          THREEAKSA_ENV_FILE: ../../.env.example
         run: docker compose -f infra/docker/compose.server.yml config >/tmp/3aksa-compose.txt
 
       - name: Build server image
