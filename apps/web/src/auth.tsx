@@ -9,6 +9,8 @@ const errorText:Record<string,string>={
   INVALID_USERNAME:'اسم المستخدم غير صالح.',
   USERNAME_TAKEN:'اسم المستخدم مستخدم من قبل.',
   USERNAME_RESERVED:'اسم المستخدم هذا محجوز.',
+  OWNER_CLAIM_INVALID:'رمز تفعيل المالك غير صحيح.',
+  OWNER_CLAIM_UNAVAILABLE:'تفعيل حساب المالك غير مجهز على السيرفر حالياً.',
   INVALID_DISPLAY_NAME:'الاسم لازم يكون بين حرفين و80 حرف.',
   INVALID_PHONE:'رقم الهاتف غير صالح.',
   PHONE_TAKEN:'رقم الهاتف مربوط بحساب ثاني.',
@@ -29,6 +31,7 @@ export function AuthScreen(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [showPassword,setShowPassword]=useState(false);
+  const [registrationUsername,setRegistrationUsername]=useState('');
 
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
@@ -53,7 +56,8 @@ export function AuthScreen(){
           displayName:String(form.get('displayName')??'').trim(),
           phone:String(form.get('phone')??'').trim(),
           gender:String(form.get('gender')??'boy') as Gender,
-          password
+          password,
+          ownerClaimCode:String(form.get('ownerClaimCode')??'').trim() || undefined
         });
       }
     }catch(err){
@@ -83,7 +87,10 @@ export function AuthScreen(){
             <label><span>اسم المستخدم أو رقم الهاتف</span><input name="login" autoComplete="username" required /></label>
           ) : (
             <>
-              <label><span>اسم المستخدم</span><input name="username" autoComplete="username" minLength={3} maxLength={32} required dir="ltr" /></label>
+              <label><span>اسم المستخدم</span><input name="username" autoComplete="username" minLength={3} maxLength={32} required dir="ltr" value={registrationUsername} onChange={(event)=>setRegistrationUsername(event.target.value)} /></label>
+              {registrationUsername.trim().toLowerCase()==='ahmed'?(
+                <label><span>رمز تفعيل المالك</span><input name="ownerClaimCode" type="password" autoComplete="off" minLength={20} required dir="ltr" /></label>
+              ):null}
               <label><span>الاسم الظاهر</span><input name="displayName" autoComplete="name" minLength={2} maxLength={80} required /></label>
               <label><span>رقم الهاتف</span><input name="phone" autoComplete="tel" inputMode="tel" required dir="ltr" placeholder="+218..." /></label>
               <fieldset className="gender-picker">
