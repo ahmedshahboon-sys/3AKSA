@@ -73,7 +73,7 @@ fi
 [ -d "$ROOT/.git" ] || { echo "Missing repository at $ROOT" >&2; exit 20; }
 
 cd "$ROOT"
-git fetch --prune origin "$BRANCH"
+git fetch --prune origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
 git checkout -B "$BRANCH" "origin/$BRANCH"
 git reset --hard "origin/$BRANCH"
 
