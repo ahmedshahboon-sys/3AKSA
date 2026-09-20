@@ -1,0 +1,36 @@
+name: CodeQL Security
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop, main]
+  schedule:
+    - cron: "17 3 * * 2"
+
+permissions:
+  contents: read
+  security-events: write
+  packages: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: codeql
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4

@@ -1,0 +1,17 @@
+FROM node:22-alpine
+
+RUN apk add --no-cache bash dumb-init
+
+WORKDIR /app
+ENV CI=1
+
+RUN npm install --global pnpm@12.4.2 \
+    && pnpm --version
+
+COPY . .
+RUN chmod -R a+rX /app \
+    && pnpm install --frozen-lockfile \
+    && chmod -R a+rX /app
+
+ENTRYPOINT ["/usr/bin/dumb-init","--"]
+CMD ["/app/apps/api/node_modules/.bin/tsx","/app/apps/api/src/server.ts"]

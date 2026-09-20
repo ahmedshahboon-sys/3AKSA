@@ -1,0 +1,72 @@
+name: Phase 11 Server Integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase11-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.4.2 --activate
+
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Verify server integration contract
+        run: node scripts/phase11-server-contract.mjs
+
+      - name: Validate Compose model
+        env:
+          THREEAKSA_ENV_FILE: ../../.env.example
+        run: docker compose -f infra/docker/compose.server.yml config >/tmp/3aksa-compose.txt
+
+      - name: Build server image
+        run: docker build -f infra/docker/Dockerfile.server -t 3aksa-server:ci .
+
+      - name: Verify direct TS runtime works read-only without network
+        run: >-
+          docker run --rm
+          --network none
+          --read-only
+          --tmpfs /tmp:rw,noexec,nosuid,size=64m
+          --user 1000:1000
+          -e HOME=/tmp
+          3aksa-server:ci
+          /app/apps/api/node_modules/.bin/tsx
+          -e
+          "console.log('runtime-tsx-ready')"
+
+      - name: Verify Web/PWA build works inside release image
+        run: |
+          docker run --rm \
+            --network none \
+            -e VITE_PUBLIC_BASE_PATH=/3aksa/ \
+            -e VITE_PUBLIC_APP_URL=https://marbo3a.ly/3aksa \
+            -e VITE_API_BASE_URL=/3aksa/api \
+            -e VITE_SOCKET_PATH=/3aksa/socket.io \
+            3aksa-server:ci \
+            sh -lc "set -eu; pnpm --filter @3aksa/web build; test -f apps/web/dist/index.html"

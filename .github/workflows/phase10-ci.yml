@@ -1,0 +1,104 @@
+name: Phase 10 Security
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase10-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: threeaksa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d threeaksa_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      APP_VERSION: phase10-ci
+      API_HOST: 127.0.0.1
+      API_PORT: 3101
+      API_BASE_PATH: /3aksa/api
+      SOCKET_PATH: /3aksa/socket.io
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/threeaksa_test
+      REDIS_URL: redis://127.0.0.1:6379/0
+      REDIS_KEY_PREFIX: "3aksa:phase10:"
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_ROOT: ./.data/phase10-storage
+      SESSION_SECRET: phase10-ci-session-secret-6d7f1f5b6b0943d9898c6c8ad6a3a24f
+      PASSWORD_PEPPER: phase10-ci-password-pepper-88e1d2e478684369bd3bb5aee91d80e5
+      ADMIN_MFA_ENCRYPTION_KEY: phase10-ci-mfa-key-52e16e28ecf4438ba62bd27aa52f77b7
+      PUSH_ENCRYPTION_KEY: phase10-ci-push-key-76c204c5ddc24f8a83775fd741a4810c
+      WEB_ALLOWED_ORIGINS: http://localhost:5173
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.4.2 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck all workspaces
+        run: pnpm typecheck
+
+      - name: Verify Phase 10 security contract
+        run: node scripts/phase10-security-contract.mjs
+
+      - name: Apply PostgreSQL migrations
+        run: pnpm --filter @3aksa/api db:migrate
+
+      - name: Run Phase 10 security integration
+        run: pnpm --filter @3aksa/api exec tsx --test tests/phase10-security.integration.test.ts
+
+      - name: Verify production configuration fails closed
+        env:
+          NODE_ENV: production
+          APP_VERSION: 1.0.0-ci
+          API_HOST: 127.0.0.1
+          STORAGE_DRIVER: local
+          STORAGE_LOCAL_ROOT: /tmp/3aksa-storage
+          WEB_ALLOWED_ORIGINS: https://marbo3a.ly
+          SESSION_SECRET: 2ed02cff5cd14133a613b32de9e3f99671470db808564320b79fe2a879da0a38
+          PASSWORD_PEPPER: b61ee788fc334435b900056872134c6ead31d88fe3464d25b22f154123118c39
+          ADMIN_MFA_ENCRYPTION_KEY: 0ecdd833fe5a41fa9dd5748669507383a19928acdb904f0cb4c1be0b8a7e4331
+          PUSH_ENCRYPTION_KEY: 51292e37319d4644a05bf037a05ad991de21ca95f45e49228df13be0ba103b9a
+          WEB_PUSH_SUBJECT: mailto:security@marbo3a.ly
+        run: pnpm --filter @3aksa/api security:preflight
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high

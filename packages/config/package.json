@@ -1,0 +1,22 @@
+{
+  "name": "@3aksa/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc --noEmit -p tsconfig.json",
+    "lint": "echo 'lint pending workspace tooling'",
+    "test": "echo 'tests pending'",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

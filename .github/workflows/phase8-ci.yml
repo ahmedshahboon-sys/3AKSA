@@ -1,0 +1,74 @@
+name: Phase 8 CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase8-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  admin-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: threeaksa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d threeaksa_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      APP_VERSION: phase8-ci
+      API_HOST: 127.0.0.1
+      API_PORT: 3101
+      API_BASE_PATH: /3aksa/api
+      SOCKET_PATH: /3aksa/socket.io
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/threeaksa_test
+      REDIS_URL: redis://127.0.0.1:6379/0
+      REDIS_KEY_PREFIX: "3aksa:test:"
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_ROOT: ./.data/test-storage
+      SESSION_SECRET: phase8-ci-session-secret-placeholder-00000000000000000000
+      PASSWORD_PEPPER: phase8-ci-password-pepper-placeholder-000000000000000000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.4.2 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify project contracts
+        run: pnpm verify
+      - name: Apply PostgreSQL migrations
+        run: pnpm --filter @3aksa/api db:migrate
+      - name: Run Phase 8 admin/security integration tests
+        run: pnpm --filter @3aksa/api exec tsx --test tests/admin-security.integration.test.ts tests/admin-moderation.integration.test.ts

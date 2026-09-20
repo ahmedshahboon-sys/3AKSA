@@ -1,0 +1,182 @@
+name: Trusted Release Build
+
+on:
+  push:
+    branches:
+      - release/1.0.1-public-beta
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: Android version name (for example 0.1.0)
+        required: true
+        default: "0.1.0"
+      version_code:
+        description: Android monotonically increasing version code
+        required: true
+        default: "1"
+      public_base_path:
+        description: Web/PWA base path
+        required: true
+        default: "/3aksa/"
+      public_app_url:
+        description: Public Web/PWA URL
+        required: true
+        default: "https://marbo3a.ly/3aksa"
+      api_base_url:
+        description: Public API URL
+        required: true
+        default: "https://marbo3a.ly/3aksa/api"
+      socket_url:
+        description: Public Socket.IO origin
+        required: true
+        default: "https://marbo3a.ly"
+      socket_path:
+        description: Public Socket.IO path
+        required: true
+        default: "/3aksa/socket.io"
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: web-release-artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_PUBLIC_BASE_PATH: ${{ github.event_name == 'workflow_dispatch' && inputs.public_base_path || '/3aksa/' }}
+      VITE_PUBLIC_APP_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.public_app_url || 'https://marbo3a.ly/3aksa' }}
+      VITE_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.api_base_url || 'https://marbo3a.ly/3aksa/api' }}
+      VITE_SOCKET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.socket_url || 'https://marbo3a.ly' }}
+      VITE_SOCKET_PATH: ${{ github.event_name == 'workflow_dispatch' && inputs.socket_path || '/3aksa/socket.io' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.4.2 --activate
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build Web/PWA
+        run: pnpm --filter @3aksa/web build
+      - name: Upload Web/PWA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3aksa-web-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}
+          path: apps/web/dist
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    name: signed-android-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_APP_ID: ly.threeaksa.app
+      ANDROID_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}
+      ANDROID_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '2' }}
+      VITE_PUBLIC_BASE_PATH: /
+      VITE_PUBLIC_APP_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.public_app_url || 'https://marbo3a.ly/3aksa' }}
+      VITE_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.api_base_url || 'https://marbo3a.ly/3aksa/api' }}
+      VITE_SOCKET_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.socket_url || 'https://marbo3a.ly' }}
+      VITE_SOCKET_PATH: ${{ github.event_name == 'workflow_dispatch' && inputs.socket_path || '/3aksa/socket.io' }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Require release signing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub Actions secret: $name"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.4.2 --activate
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify release source
+        run: |
+          pnpm typecheck
+          node scripts/browser-fetch-contract.mjs
+          node scripts/android-release-contract.mjs
+          node scripts/android-startup-safety-contract.mjs
+          node scripts/check-visual-assets.mjs || bash scripts/prepare-visual-assets.sh
+
+      - name: Build Android web assets
+        run: pnpm --filter @3aksa/web build
+      - name: Generate hardened Android project
+        working-directory: apps/mobile
+        run: |
+          pnpm exec cap add android
+          pnpm exec cap sync android
+          node scripts/install-secure-store.mjs
+          node scripts/install-launcher-assets.mjs
+          node scripts/set-android-version.mjs
+
+      - name: Build unsigned release APK
+        working-directory: apps/mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Align, sign and verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE=/tmp/3aksa-release.jks
+          UNSIGNED=apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED=/tmp/3aksa-release-aligned.apk
+          OUTPUT="3aksa-${ANDROID_VERSION_NAME}-${ANDROID_VERSION_CODE}.apk"
+
+          test -f "$UNSIGNED"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+
+          BUILD_TOOLS="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          ZIPALIGN="$ANDROID_HOME/build-tools/$BUILD_TOOLS/zipalign"
+          APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner"
+
+          "$ZIPALIGN" -p -f 4 "$UNSIGNED" "$ALIGNED"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
+            --key-pass "pass:$ANDROID_KEY_PASSWORD" \
+            --out "$OUTPUT" \
+            "$ALIGNED"
+          "$APKSIGNER" verify --verbose --print-certs "$OUTPUT" | tee "$OUTPUT.cert.txt"
+          sha256sum "$OUTPUT" | tee "$OUTPUT.sha256"
+          rm -f "$KEYSTORE" "$ALIGNED"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3aksa-android-release-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}
+          path: |
+            3aksa-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}-${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '2' }}.apk
+            3aksa-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}-${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '2' }}.apk.sha256
+            3aksa-${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.0.1' }}-${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '2' }}.apk.cert.txt
+          if-no-files-found: error
+          retention-days: 30
