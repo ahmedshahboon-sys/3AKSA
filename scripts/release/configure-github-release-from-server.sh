@@ -57,7 +57,7 @@ chmod 644 "$SSH_KEY.pub"
 cat > "$FORCED_COMMAND" <<'FORCED'
 #!/usr/bin/env bash
 set -Eeuo pipefail
-umask 077
+umask 022
 
 ROOT=/opt/3aksa
 BRANCH=release/1.0.1-public-beta
