@@ -41,7 +41,7 @@ chmod 600 /etc/3aksa/3aksa.env
 cd "${ROOT}"
 
 docker compose -f "${COMPOSE}" build api
-docker compose -f "${COMPOSE}" --profile ops run --rm api sh -lc 'pnpm --filter @3aksa/api security:preflight'
+docker compose -f "${COMPOSE}" --profile ops run --rm api /app/apps/api/node_modules/.bin/tsx /app/apps/api/scripts/production-preflight.ts
 docker compose -f "${COMPOSE}" --profile ops run --rm migrate
 docker compose -f "${COMPOSE}" --profile build run --rm web-build
 docker compose -f "${COMPOSE}" up -d api worker
